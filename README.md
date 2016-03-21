@@ -2,6 +2,15 @@
 
 Libfna is a lightweight FASTA / FASTQ parser library written in pure C99, developed as a submodule of the comb aligner.
 
+## Build
+
+Python (2.7 or 3.x) is required to run the build script written in waf.
+
+```
+$ ./waf configure
+$ ./waf build
+```
+
 ## Usage
 
 ```
