@@ -4,7 +4,7 @@ Libfna is a lightweight FASTA / FASTQ parser library written in pure C99, develo
 
 ## Build
 
-Python (2.7 or 3.x) is required to run the build script written in waf.
+Python (2.7 or 3.x) is required to run the build script written in [waf](https://github.com/waf-project/waf).
 
 ```
 $ ./waf configure
