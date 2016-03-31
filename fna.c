@@ -44,7 +44,6 @@
 #include <stdint.h>
 #include "zf/zf.h"
 #include "fna.h"
-#include "kopen.h"
 #include "kvec.h"
 #include "sassert.h"
 
