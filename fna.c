@@ -42,6 +42,7 @@
 #include <string.h>
 #include <zlib.h>
 #include <stdint.h>
+#include "zf/zf.h"
 #include "fna.h"
 #include "kopen.h"
 #include "kvec.h"
@@ -67,12 +68,8 @@ struct fna_context_s {
 	int32_t format;
 	int32_t encode;
 	int32_t status;
-	int fd;					/** file descriptor */
-	void *ko;				/** kopen file pointer */
-	gzFile fp;				/** zlib file pointer */
+	zf_t *fp;				/** zf context (file pointer) */
 	int32_t state;
-	uint8_t *buf;
-	uint64_t blen;
 	uint16_t head_margin;	/** margin at the head of fna_seq_t */
 	uint16_t tail_margin;
 	struct fna_seq_intl_s *(*read)(struct fna_context_s *fna);
@@ -90,8 +87,6 @@ _static_assert_offset(struct fna_s, status, struct fna_context_s, status, 0);
 struct fna_seq_intl_s {
 	kvec_t(char) name;
 	kvec_t(uint8_t) seq;
-	// char *name;
-	// uint8_t *seq;
 	int64_t len;
 	int32_t encode;			/** one of _fna_flag_encode */
 	uint16_t head_margin;	/** margin at the head of fna_seq_t */
@@ -132,10 +127,9 @@ fna_t *fna_init(
 	char const *path,
 	fna_params_t const *params)
 {
-	int64_t i;
 	struct fna_context_s *fna = NULL;
 	size_t len;
-	size_t const blen = 16 * 1024;
+	size_t const buf_size = 16 * 1024;
 
 	/* extension determination */
 	struct _ext {
@@ -180,18 +174,11 @@ fna_t *fna_init(
 	}
 	fna->path = NULL;
 	fna->encode = params->seq_encode;	/** encode sequence to 2-bit if encode == FNA_2BITPACKED */
-	fna->fd = -1;
 	fna->fp = NULL;
-	fna->ko = NULL;
 	fna->format = params->file_format;	/** format (see enum FNA_FORMAT) */
 	fna->state = 0;						/** initial state (see enum FNA_STATE in fna.h) */
 	fna->head_margin = params->head_margin;
 	fna->tail_margin = params->tail_margin;
-	if((fna->buf = (uint8_t *)malloc(sizeof(uint8_t) * blen)) == NULL) {
-		fna->status = FNA_ERROR_OUT_OF_MEM;
-		goto _fna_init_error_handler;
-	}
-	fna->blen = blen;
 
 	/**
 	 * restore defaults
@@ -201,19 +188,21 @@ fna_t *fna_init(
 	}
 
 	/**
-	 * check if the file is gzipped
+	 * open file
 	 */
-	len = strlen(path);
-	if(strncmp(path + len - 3, ".gz", 3) == 0) { len -= 3; }
-//	if(strncmp(path + len - 3, ".xz", 3) == 0) { len -= 3; }	/** currently unsupported */
+	fna->fp = zfopen(path, "r");
+	if(fna->fp == NULL) {
+		goto _fna_init_error_handler;
+	}
 
 	/**
 	 * if fna->format is not specified...
 	 * 1. determine file format from the path extension
 	 */
 	if(fna->format == 0) {
+		char const *path_tail = fna->fp->path + strlen(fna->fp->path);
 		for(ep = ext; ep->ext != NULL; ep++) {
-			if(strncmp(path + len - strlen(ep->ext), ep->ext, strlen(ep->ext)) == 0) {
+			if(strncmp(path_tail - strlen(ep->ext), ep->ext, strlen(ep->ext)) == 0) {
 				fna->format = ep->format; break;
 			}
 		}
@@ -223,19 +212,15 @@ fna_t *fna_init(
 	 * 2. determine file format from the content of the file
 	 */
 	if(fna->format == 0) {
-		fna->ko = kopen(path, &(fna->fd));
-		if((fna->fp = gzdopen(fna->fd, "rb")) == NULL) {
-			fna->status = FNA_ERROR_FILE_OPEN;
-			goto _fna_init_error_handler;
-		}
-		for(i = 0; i < 4; i++) {
-			switch(gzgetc(fna->fp)) {
+		/* peek the head of the file */
+		char buf[32];
+		uint64_t len = zfpeek(fna->fp, buf, 32);
+		for(int64_t i = 0; i < len; i++) {
+			switch(buf[i]) {
 				case '>': fna->format = FNA_FASTA; break;
 				case '@': fna->format = FNA_FASTQ; break;
 			}
 		}
-		gzclose(fna->fp); fna->fp = NULL;
-		kclose(fna->ko); fna->ko = NULL;
 	}
 	if(fna->format == 0) {
 		// log_error("Couldn't determine file format `%s'.\n", path);
@@ -250,42 +235,20 @@ fna_t *fna_init(
 		}
 	#endif
 	fna->read = read[fna->format];
-//	printf("%d\n", fna->format);
 	fna->path = strdup(path);
-
-	/**
-	 * open file and set buffer size
-	 */
-	fna->ko = kopen(path, &(fna->fd));
-	if((fna->fp = gzdopen(fna->fd, "rb")) == NULL) {
-		fna->status = FNA_ERROR_FILE_OPEN;
-		goto _fna_init_error_handler;
-	}
-	#if ZLIB_VERNUM >= 0x1240
-		/** resize read buffer if supported */
-		gzbuffer(fna->fp, 512 * 1024);		/** 512 kilobytes */
-	#endif
-
 	return((struct fna_s *)fna);
 
 _fna_init_error_handler:
 	if(fna != NULL) {
 		if(fna->fp != NULL) {
-			gzclose(fna->fp); fna->fp = NULL;
-		}
-		if(fna->ko != NULL) {
-			kclose(fna->ko); fna->ko = NULL;
+			zfclose(fna->fp); fna->fp = NULL;
 		}
 		if(fna->path != NULL) {
 			free(fna->path); fna->path = NULL;
 		}
-		if(fna->buf != NULL) {
-			free(fna->buf); fna->buf = NULL;
-		}
-		// free(fna); fna = NULL;
 		return((struct fna_s *)fna);
 	}
-	return NULL;
+	return(NULL);
 }
 
 /**
@@ -299,16 +262,10 @@ void fna_close(fna_t *ctx)
 
 	if(fna != NULL) {
 		if(fna->fp != NULL) {
-			gzclose(fna->fp); fna->fp = NULL;
-		}
-		if(fna->ko != NULL) {
-			kclose(fna->ko); fna->ko = NULL;
+			zfclose(fna->fp); fna->fp = NULL;
 		}
 		if(fna->path != NULL) {
 			free(fna->path); fna->path = NULL;
-		}
-		if(fna->buf != NULL) {
-			free(fna->buf); fna->buf = NULL;
 		}
 		free(fna); fna = NULL;
 	}
@@ -406,8 +363,8 @@ struct fna_seq_intl_s *fna_read_fasta(
 	/**
 	 * read sequence name
 	 */
-	while((c = gzgetc(fna->fp)) != '>') {		/** search seqname token */
-		if(gzeof(fna->fp)) {
+	while((c = zfgetc(fna->fp)) != '>') {		/** search seqname token */
+		if(zfeof(fna->fp)) {
 			fna->status = FNA_EOF;
 			goto _fna_read_fasta_error_handler;	/** no sequences found */
 		}
@@ -415,9 +372,9 @@ struct fna_seq_intl_s *fna_read_fasta(
 	fna->state = FNA_SEQ_NAME;
 	kv_clear(seq->name);
 	int head_spaces = 1;
-	while((c = gzgetc(fna->fp)) != '\n') {
+	while((c = zfgetc(fna->fp)) != '\n') {
 		/** header without sequence */
-		if(gzeof(fna->fp)) {
+		if(zfeof(fna->fp)) {
 			fna->status = FNA_EOF;
 			goto _fna_read_fasta_error_handler;
 		}
@@ -432,8 +389,8 @@ struct fna_seq_intl_s *fna_read_fasta(
 	 */
 	fna->state = FNA_SEQ;
 	kv_clear(seq->seq);
-	while((c = gzgetc(fna->fp)) != '>') {
-		if(gzeof(fna->fp)) {
+	while((c = zfgetc(fna->fp)) != '>') {
+		if(zfeof(fna->fp)) {
 			fna->status = FNA_EOF;				/** the last sequence */
 			break;
 		}
@@ -455,7 +412,7 @@ struct fna_seq_intl_s *fna_read_fasta(
 	}
 	seq->encode = fna->encode;					/** set packing format */
 
-	gzungetc(c, fna->fp);						/** push back '>' */
+	zfungetc(fna->fp, c);						/** push back '>' */
 	fna->state = 0;								/** initial state */
 
 	return(seq);
@@ -504,8 +461,8 @@ struct fna_seq_intl_s *fna_read_fastq(
 	/**
 	 * read sequence name
 	 */
-	while((c = gzgetc(fna->fp)) != '@') {		/** search seqname token */
-		if(gzeof(fna->fp)) {
+	while((c = zfgetc(fna->fp)) != '@') {		/** search seqname token */
+		if(zfeof(fna->fp)) {
 			fna->status = FNA_EOF;
 			goto _fna_read_fastq_error_handler;
 		}
@@ -513,8 +470,8 @@ struct fna_seq_intl_s *fna_read_fastq(
 	fna->state = FNA_SEQ_NAME;
 	kv_clear(seq->name);
 	int head_spaces = 1;
-	while((c = gzgetc(fna->fp)) != '\n') {
-		if(gzeof(fna->fp)) {
+	while((c = zfgetc(fna->fp)) != '\n') {
+		if(zfeof(fna->fp)) {
 			fna->status = FNA_EOF;
 			goto _fna_read_fastq_error_handler;
 		}
@@ -528,8 +485,8 @@ struct fna_seq_intl_s *fna_read_fastq(
 	 */
 	fna->state = FNA_SEQ;
 	kv_clear(seq->seq);
-	while((c = gzgetc(fna->fp)) != '+') {
-		if(gzeof(fna->fp)) {
+	while((c = zfgetc(fna->fp)) != '+') {
+		if(zfeof(fna->fp)) {
 			fna->status = FNA_EOF;
 			break;
 		}
@@ -551,13 +508,13 @@ struct fna_seq_intl_s *fna_read_fastq(
 	}
 
 	seq->encode = fna->encode;					/** set packing format */
-	while((c = gzgetc(fna->fp)) != '@') {		/** skip quality info */
-		if(gzeof(fna->fp)) {
+	while((c = zfgetc(fna->fp)) != '@') {		/** skip quality info */
+		if(zfeof(fna->fp)) {
 			fna->status = FNA_EOF;
 			break;
 		}
 	}
-	gzungetc(c, fna->fp);						/** push back '@' */
+	zfungetc(fna->fp, c);						/** push back '@' */
 	fna->state = 0;								/** initial state */
 	return(seq);
 

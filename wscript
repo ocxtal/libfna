@@ -5,23 +5,26 @@ def options(opt):
 	opt.load('compiler_c')
 
 def configure(conf):
+	conf.recurse('zf')
+
 	conf.load('ar')
 	conf.load('compiler_c')
-	if 'LIB_Z' not in conf.env:
-		conf.check_cc(lib = 'z')
-
 	conf.env.append_value('CFLAGS', '-O3')
 	conf.env.append_value('CFLAGS', '-march=native')
 
 
 def build(bld):
+	bld.recurse('zf')
+
 	bld.stlib(
-		source = ['fna.c', 'kopen.c'],
+		source = ['fna.c'],
 		target = 'fna',
-		lib = ['z'])
+		lib = bld.env.LIB_ZF,
+		use = ['zf'])
 
 	bld.program(
-		source = ['fna.c', 'kopen.c'],
+		source = ['fna.c'],
 		target = 'unittest',
-		lib = ['z'],
+		lib = bld.env.LIB_ZF,
+		use = ['zf'],
 		defines = ['TEST'])
