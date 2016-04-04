@@ -38,11 +38,8 @@
  *     seq: sequence container (kvec_t(uint8_t) or kpvec_t(uint8_t) instance)
  *       seq.a: pointer to the sequence (null-terminated when fna->seq_encode == FNA_RAW)
  */
-#include <stdarg.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
-#include <zlib.h>
 #include "zf/zf.h"
 #include "fna.h"
 #include "kvec.h"
