@@ -39,6 +39,13 @@ int main() {
 */
 
 /*
+  2016-0401
+
+    * modify kv_init to return object
+    * add kv_pusha to append arbitrary type element
+    * add kv_roundup
+    * change init size to 256
+
   2015-0307
 
     * add packed vector. (Hajime Suzuki)
@@ -57,14 +64,16 @@ int main() {
 #include <stdint.h>
 
 #define kv_roundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
+#define kv_roundup(x, base)			( (((x) + (base) - 1) / (base)) * (base) )
 
-#define _INIT 			( 64 )
+
+#define _INIT 			( 256 )
 
 /**
  * basic vectors (kv_*)
  */
 #define kvec_t(type)    struct { uint64_t n, m; type *a; }
-#define kv_init(v)      ( (v).n = 0, (v).m = _INIT, (v).a = calloc((v).m, sizeof(*(v).a)) )
+#define kv_init(v)      ({ (v).n = 0; (v).m = _INIT; (v).a = calloc((v).m, sizeof(*(v).a)); (v); })
 #define kv_destroy(v)   { free((v).a); (v).a = NULL; }
 // #define kv_A(v, i)      ( (v).a[(i)] )
 #define kv_pop(v)       ( (v).a[--(v).n] )
@@ -97,6 +106,17 @@ int main() {
 	((v).m = (v).m * 2,									\
 	 (v).a = realloc((v).a, sizeof(*(v).a) * (v).m), 0)	\
 	: 0), ( (v).a + ((v).n++) )
+
+/* kv_pusha will not check the alignment of elem_t */
+#define kv_pusha(elem_t, v, x) do { \
+		uint64_t size = kv_roundup(sizeof(elem_t), sizeof(*(v).a)); \
+		if(sizeof(*(v).a) * ((v).m - (v).n) < size) { \
+			(v).m = (v).m * 2;								\
+			(v).a = realloc((v).a, sizeof(*(v).a) * (v).m);	\
+		} \
+		*((elem_t *)&((v).a[(v).n])) = (x); \
+		(v).n += size / sizeof(*(v).a); \
+	} while(0)
 
 #define kv_a(v, i) ( \
 	((v).m <= (size_t)(i) ? \

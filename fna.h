@@ -50,7 +50,9 @@ enum fna_flag_encode {
 	FNA_RAW 		= 0,
 	FNA_ASCII 		= 0,
 	FNA_2BIT		= 1,
-	FNA_2BITPACKED 	= 2
+	FNA_2BITPACKED 	= 2,
+	FNA_4BIT		= 3,
+	FNA_4BITPACKED 	= 4,
 };
 
 /**
@@ -63,6 +65,13 @@ enum fna_format {
 	FNA_FASTA		= 1,
 	FNA_FASTQ		= 2,
 	FNA_FAST5		= 3
+};
+
+/**
+ * @enum fna_options
+ */
+enum fna_options {
+	FNA_SKIP_QUAL 	= 1
 };
 
 /**
@@ -82,10 +91,13 @@ enum fna_status {
  * @brief options
  */
 struct fna_params_s {
-	int32_t file_format;		/** see enum fna_format */
-	int32_t seq_encode;			/** see enum fna_flag_encode */
+	uint8_t file_format;		/** see enum fna_format */
+	uint8_t seq_encode;			/** see enum fna_flag_encode */
+	uint16_t options;			/** see enum fna_options */
 	uint16_t head_margin;		/** margin at the head of fna_seq_t */
 	uint16_t tail_margin;		/** margin at the tail of fna_seq_t	*/
+	uint16_t seq_head_margin;	/** margin at the head of seq buffer */
+	uint16_t seq_tail_margin;	/** margin at the tail of seq buffer */
 };
 typedef struct fna_params_s fna_params_t;
 
@@ -98,10 +110,11 @@ typedef struct fna_params_s fna_params_t;
  */
 struct fna_s {
 	char *path;
-	int32_t file_format;		/** see enum fna_format */
-	int32_t seq_encode;			/** see enum fna_flag_encode */
+	uint8_t file_format;		/** see enum fna_format */
+	uint8_t seq_encode;			/** see enum fna_flag_encode */
+	uint16_t options;
 	int32_t status;				/** see enum fna_status */
-	uint32_t reserved[16];
+	uint32_t reserved1[7];
 };
 typedef struct fna_s fna_t;
 
@@ -111,13 +124,16 @@ typedef struct fna_s fna_t;
  * @brief a struct to contain parsed sequence.
  */
 struct fna_seq_s {
-	uint64_t reserved1[2];
 	char *name;					/** sequence name */
-	uint64_t reserved2[2];
+	int64_t reserved1;
 	uint8_t *seq;				/** sequence */
-	int64_t len;				/** sequence length */
-	int32_t seq_encode;			/** one of fna_flag_encode */
-	uint32_t reserved3;
+	int64_t seq_len;			/** sequence length */
+	uint8_t *qual;
+	int64_t qual_len;
+	uint8_t seq_encode;			/** one of fna_flag_encode */
+	uint8_t reserved2;
+	uint16_t options;
+	uint16_t reserved3[4];
 };
 typedef struct fna_seq_s fna_seq_t;
 
