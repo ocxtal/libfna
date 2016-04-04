@@ -64,7 +64,8 @@ enum fna_format {
 	FNA_UNKNOWN		= 0,
 	FNA_FASTA		= 1,
 	FNA_FASTQ		= 2,
-	FNA_FAST5		= 3
+	FNA_FAST5		= 3,
+	FNA_GFA			= 4
 };
 
 /**
@@ -72,6 +73,15 @@ enum fna_format {
  */
 enum fna_options {
 	FNA_SKIP_QUAL 	= 1
+};
+
+/**
+ * @enum fna_seq_type
+ * @brief distinguish struct fna_seq_s with struct fna_link_s
+ */
+enum fna_seq_type {
+	FNA_SEGMENT 	= 1,
+	FNA_LINK		= 2
 };
 
 /**
@@ -83,7 +93,8 @@ enum fna_status {
 	FNA_ERROR_UNKNOWN_FORMAT	= 2,
 	FNA_ERROR_BROKEN_FORMAT		= 3,
 	FNA_ERROR_OUT_OF_MEM		= 4,
-	FNA_EOF 					= 0
+	FNA_ERROR_UNSUPPORTED_VERSION = 5,
+	FNA_EOF 					= -1
 };
 
 /**
@@ -124,15 +135,29 @@ typedef struct fna_s fna_t;
  * @brief a struct to contain parsed sequence.
  */
 struct fna_seq_s {
-	char *name;					/** sequence name */
-	int64_t reserved1;
-	uint8_t *seq;				/** sequence */
-	int64_t seq_len;			/** sequence length */
-	uint8_t *qual;
-	int64_t qual_len;
+	uint8_t type;
 	uint8_t seq_encode;			/** one of fna_flag_encode */
-	uint8_t reserved2;
 	uint16_t options;
+	union {
+		struct {
+			char *name;					/** sequence name */
+			int64_t name_len;
+			uint8_t *seq;				/** sequence */
+			int64_t seq_len;			/** sequence length */
+			uint8_t *qual;
+			int64_t qual_len;
+		} segment;
+		struct {
+			char *from;
+			int32_t from_len;
+			int32_t from_ori;
+			char *to;
+			int32_t to_len;
+			int32_t to_ori;
+			char *cigar;				/** contains link cigar string */
+			int64_t cigar_len;			/** contains link cigar string length (== strlen(seq)) */
+		} link;
+	};
 	uint16_t reserved3[4];
 };
 typedef struct fna_seq_s fna_seq_t;
