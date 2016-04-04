@@ -294,12 +294,16 @@ fna_t *fna_init(
 	 */
 	if(fna->file_format == 0) {
 		/* peek the head of the file */
-		char buf[32];
+		char buf[33] = { 0 };
 		uint64_t len = zfpeek(fna->fp, buf, 32);
 		for(int64_t i = 0; i < len; i++) {
 			switch(buf[i]) {
 				case '>': fna->file_format = FNA_FASTA; break;
 				case '@': fna->file_format = FNA_FASTQ; break;
+				case 'H':
+				if(buf[i + 1] == '\t') {
+					fna->file_format = FNA_GFA; break;
+				}
 			}
 		}
 	}
@@ -1161,33 +1165,38 @@ static
 struct fna_seq_intl_s *fna_read_gfa(
 	struct fna_context_s *fna)
 {
-	int c = zfgetc(fna->fp);
-	if(c == EOF) {
-		fna->status = FNA_EOF;
-		return(NULL);
-	}
+	int c;
+	while((c = zfgetc(fna->fp)) != EOF) {
 
-	/* eat tab after type character */
-	if(zfgetc(fna->fp) != '\t') {
-		fna->status = FNA_ERROR_BROKEN_FORMAT;
-		return(NULL);
-	}
+		/* eat tab after type character */
+		if(zfgetc(fna->fp) != '\t') {
+			fna->status = FNA_ERROR_BROKEN_FORMAT;
+			return(NULL);
+		}
 
-	/* examine type */
-	switch(c) {
-		case 'S': return(fna_read_gfa_seq(fna));
-		case 'L': return(fna_read_gfa_link(fna));
-		case 'C': return(fna_read_gfa_cont(fna));
-		case 'P': return(fna_read_gfa_path(fna));
-		
-		default:
-		/* broken broken broken */
-		fna->status = FNA_ERROR_BROKEN_FORMAT;
-		return(NULL);
-	}
+		/* examine type */
+		switch(c) {
+			case 'S': return(fna_read_gfa_seq(fna));
+			case 'L': return(fna_read_gfa_link(fna));
 
-	/* never reach here */
-	fna->status = FNA_ERROR_BROKEN_FORMAT;
+			case 'C':	/* fall throught to 'P' */
+			case 'P':
+			fna_read_skip(fna, delim_line);
+			break;
+
+			/*
+			case 'C': return(fna_read_gfa_cont(fna));
+			case 'P': return(fna_read_gfa_path(fna));
+			*/
+			
+			default:
+			/* broken broken broken */
+			fna->status = FNA_ERROR_BROKEN_FORMAT;
+			return(NULL);
+		}
+
+	}
+	fna->status = FNA_EOF;
 	return(NULL);
 }
 
@@ -1496,7 +1505,8 @@ unittest()
 	char const *fasta_content =
 		">test0\nAAAA\n"
 		"> test1\nATAT\nCGCG\n"
-		">  test2\n\nAAAA\n";
+		">  test2\n\nAAAA\n"
+		">\ttest3\nACGT";
 	assert(fdump(fasta_filename, fasta_content));
 	assert(fcmp(fasta_filename, strlen(fasta_content), (uint8_t const *)fasta_content));
 
@@ -1527,6 +1537,13 @@ unittest()
 	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
 	fna_seq_free(seq);
 
+	/* test3 */
+	seq = fna_read(fna);
+	assert(strcmp(seq->segment.name, "test3") == 0, "name(%s)", seq->segment.name);
+	assert(strcmp((char const *)seq->segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->segment.seq);
+	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
+	fna_seq_free(seq);
+
 	/* test eof */
 	seq = fna_read(fna);
 	assert(seq == NULL, "seq(%p)", seq);
@@ -1554,7 +1571,8 @@ unittest()
 	char const *fastq_content =
 		"@test0\nAAAA\n+test0\nNNNN\n"
 		"@ test1\nATAT\nCGCG\n+ test1\nNNNN\nNNNN\n"
-		"@  test2\n\nAAAA\n+  test2\n\nNNNN\n";
+		"@  test2\n\nAAAA\n+  test2\n\nNNNN\n"
+		"@\ttest3\nACGT\n\n+\ttest3\nNNNN";
 	assert(fdump(fastq_filename, fastq_content));
 	assert(fcmp(fastq_filename, strlen(fastq_content), (uint8_t const *)fastq_content));
 
@@ -1591,6 +1609,15 @@ unittest()
 	assert(seq->segment.qual_len == 4, "len(%lld)", seq->segment.qual_len);
 	fna_seq_free(seq);
 
+	/* test3 */
+	seq = fna_read(fna);
+	assert(strcmp(seq->segment.name, "test3") == 0, "name(%s)", seq->segment.name);
+	assert(strcmp((char const *)seq->segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->segment.seq);
+	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp((char const *)seq->segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->segment.qual);
+	assert(seq->segment.qual_len == 4, "len(%lld)", seq->segment.qual_len);
+	fna_seq_free(seq);
+
 	/* test eof */
 	seq = fna_read(fna);
 	assert(seq == NULL, "seq(%p)", seq);
@@ -1617,7 +1644,8 @@ unittest()
 	char const *fastq_content =
 		"@test0\nAAAA\n+test0\nNNNN\n"
 		"@ test1\nATAT\nCGCG\n+ test1\nNNNN\nNNNN\n"
-		"@  test2\n\nAAAA\n+  test2\n\nNNNN\n";
+		"@  test2\n\nAAAA\n+  test2\n\nNNNN\n"
+		"@\ttest3\nACGT\n\n+\ttest3\nNNNN";
 	assert(fdump(fastq_filename, fastq_content));
 	assert(fcmp(fastq_filename, strlen(fastq_content), (uint8_t const *)fastq_content));
 
@@ -1654,6 +1682,15 @@ unittest()
 	assert(seq->segment.qual_len == 0, "len(%lld)", seq->segment.qual_len);
 	fna_seq_free(seq);
 
+	/* test3 */
+	seq = fna_read(fna);
+	assert(strcmp(seq->segment.name, "test3") == 0, "name(%s)", seq->segment.name);
+	assert(strcmp((char const *)seq->segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->segment.seq);
+	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp((char const *)seq->segment.qual, "") == 0, "seq(%s)", (char const *)seq->segment.qual);
+	assert(seq->segment.qual_len == 0, "len(%lld)", seq->segment.qual_len);
+	fna_seq_free(seq);
+
 	/* test eof */
 	seq = fna_read(fna);
 	assert(seq == NULL, "seq(%p)", seq);
@@ -1681,7 +1718,8 @@ unittest()
 		"L	11	+	12	-	4M\n"
 		"L	12	-	13	+	5M\n"
 		"L	11	+	13	+	3M\n"
-		"P	14	11+,12-,13+	4M,5M\n";
+		"P	14	11+,12-,13+	4M,5M\n"
+		"S	15	CTTGATT\n";
 
 	assert(fdump(gfa_filename, gfa_content));
 	assert(fcmp(gfa_filename, strlen(gfa_content), (uint8_t const *)gfa_content));
@@ -1701,7 +1739,7 @@ unittest()
 	assert(seq->segment.seq_len == 5, "len(%lld)", seq->segment.seq_len);
 	fna_seq_free(seq);
 
-	/* segment 11 */
+	/* segment 12 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
 	assert(strcmp(seq->segment.name, "12") == 0, "name(%s)", seq->segment.name);
@@ -1709,7 +1747,7 @@ unittest()
 	assert(seq->segment.seq_len == 6, "len(%lld)", seq->segment.seq_len);
 	fna_seq_free(seq);
 
-	/* segment 11 */
+	/* segment 13 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
 	assert(strcmp(seq->segment.name, "13") == 0, "name(%s)", seq->segment.name);
@@ -1745,6 +1783,21 @@ unittest()
 	assert(strcmp(seq->link.to, "13") == 0, "to(%s)", seq->link.to);
 	assert(seq->link.to_ori == 1, "to_ori(%d)", seq->link.to_ori);
 	assert(strcmp((char const *)seq->link.cigar, "3M") == 0, "cigar(%s)", (char const *)seq->link.cigar);
+	fna_seq_free(seq);
+
+	/* skip path line, not implemented yet */
+
+	/* segment 15 */
+	seq = fna_read(fna);
+	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
+	assert(strcmp(seq->segment.name, "15") == 0, "name(%s)", seq->segment.name);
+	assert(strcmp((char const *)seq->segment.seq, "CTTGATT") == 0, "seq(%s)", (char const *)seq->segment.seq);
+	assert(seq->segment.seq_len == 7, "len(%lld)", seq->segment.seq_len);
+	fna_seq_free(seq);
+
+	/* term */
+	seq = fna_read(fna);
+	assert(seq == NULL, "%p", seq);
 	fna_seq_free(seq);
 
 	fna_close(fna);
@@ -1802,6 +1855,37 @@ unittest()
 
 	/** cleanup file */
 	remove(fastq_filename);
+	return;
+}
+
+/* format detection */
+unittest()
+{
+	char const *gfa_filename = "test_gfa.txt";
+	char const *gfa_content =
+		"H	VN:Z:1.0\n"
+		"S	11	ACCTT\n"
+		"S	12	TCAAGG\n"
+		"S	13	CTTGATT\n"
+		"L	11	+	12	-	4M\n"
+		"L	12	-	13	+	5M\n"
+		"L	11	+	13	+	3M\n"
+		"P	14	11+,12-,13+	4M,5M\n"
+		"S	15	CTTGATT\n";
+
+	assert(fdump(gfa_filename, gfa_content));
+	assert(fcmp(gfa_filename, strlen(gfa_content), (uint8_t const *)gfa_content));
+
+	fna_t *fna = fna_init(gfa_filename, NULL);
+	assert(fna != NULL, "fna(%p)", fna);
+
+	/* format detection (internal) */
+	assert(fna->file_format == FNA_GFA, "fna->file_format(%d)", fna->file_format);
+
+	fna_close(fna);
+
+	/** cleanup file */
+	remove(gfa_filename);
 	return;
 }
 
