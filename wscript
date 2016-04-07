@@ -24,8 +24,9 @@ def build(bld):
 		use = ['zf'])
 
 	bld.program(
-		source = ['fna.c'],
+		source = ['unittest.c'],
 		target = 'unittest',
+		linkflags = ['-all_load'],
+		use = ['fna', 'zf'],
 		lib = bld.env.LIB_ZF,
-		use = ['zf'],
-		defines = ['TEST'])
+		defines = ['TEST'] + bld.env.DEFINES_ZF)
