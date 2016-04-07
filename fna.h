@@ -141,7 +141,8 @@ struct fna_seq_s {
 	union {
 		struct {
 			char *name;					/** sequence name */
-			int64_t name_len;
+			int32_t name_len;
+			int32_t reserved;
 			uint8_t *seq;				/** sequence */
 			int64_t seq_len;			/** sequence length */
 			uint8_t *qual;
