@@ -47,17 +47,10 @@
 #include "log.h"
 
 #define UNITTEST_UNIQUE_ID			33
-
-#ifdef TEST
-/* use auto-generated main function to run tests */
 #define UNITTEST 					1
-#define UNITTEST_ALIAS_MAIN			1
-#endif
 
 #include "unittest.h"
-unittest_config(
-	.name = "fna"
-);
+
 
 /* inline directive */
 #define _force_inline				inline
@@ -1429,11 +1422,15 @@ fna_seq_t *fna_revcomp(
 }
 #endif
 
-#ifdef TEST
 /**
  * unittests
  */
 #include <sys/stat.h>
+
+unittest_config(
+	.name = "fna",
+	.depends_on = {"zf"}
+);
 
 /**
  * @fn fdump
@@ -1979,7 +1976,6 @@ unittest()
 	remove(fasta_filename);
 }
 #endif
-#endif /* #ifdef TEST */
 
 /**
  * end of fna.c
