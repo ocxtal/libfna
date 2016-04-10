@@ -577,7 +577,7 @@ struct fna_read_ret_s fna_read_seq_ascii(
 
 /**
  * @fn fna_encode_2bit
- * @brief mapping IUPAC amb. to 4bit encoding
+ * @brief mapping IUPAC amb. to 2bit encoding
  */
 static _force_inline
 uint8_t fna_encode_2bit(
