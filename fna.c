@@ -400,6 +400,7 @@ void fna_close(fna_t *ctx)
 
 static
 uint8_t const space_table[256] = {
+	['\0'] = 1,
 	[' '] = 1,
 	['\t'] = 1,
 	['\v'] = 1,
