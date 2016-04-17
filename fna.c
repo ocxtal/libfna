@@ -648,7 +648,7 @@ struct fna_read_ret_s fna_read_seq_2bitpacked(
 	/* 4x unrolled loop */
 	while(1) {
 		#define _fetch(_fna) ({ \
-			char _c; \
+			int _c; \
 			uint8_t _type; \
 			while((_type = delim_table[(uint8_t)(_c = zfgetc(_fna->fp))]) != 0) { \
 				if(_type & 0x01) { goto _fna_read_seq_2bitpacked_finish; } \
@@ -758,7 +758,7 @@ struct fna_read_ret_s fna_read_seq_4bitpacked(
 	/* 2x unrolled loop */
 	while(1) {
 		#define _fetch(_fna) ({ \
-			char _c; \
+			int _c; \
 			uint8_t _type; \
 			while((_type = delim_table[(uint8_t)(_c = zfgetc(_fna->fp))]) != 0) { \
 				if(_type & 0x01) { goto _fna_read_seq_4bitpacked_finish; } \
