@@ -438,8 +438,10 @@ void fna_seq_make_margin(
 	kvec_uint8_t *v,
 	int64_t len)
 {
+	uint64_t base = kv_size(*v);
+	kv_reserve(*v, base + len);
 	for(int64_t i = 0; i < len; i++) {
-		kv_push(*v, 0);
+		kv_at(*v, base + i) = 0;
 	}
 	return;
 }
