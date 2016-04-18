@@ -326,12 +326,8 @@ fna_t *fna_init(
 
 _fna_init_error_handler:
 	if(fna != NULL) {
-		if(fna->fp != NULL) {
-			zfclose(fna->fp); fna->fp = NULL;
-		}
-		if(fna->path != NULL) {
-			free(fna->path); fna->path = NULL;
-		}
+		zfclose(fna->fp); fna->fp = NULL;
+		free(fna->path); fna->path = NULL;
 		return((struct fna_s *)fna);
 	}
 	return(NULL);
@@ -347,12 +343,8 @@ void fna_close(fna_t *ctx)
 	struct fna_context_s *fna = (struct fna_context_s *)ctx;
 
 	if(fna != NULL) {
-		if(fna->fp != NULL) {
-			zfclose(fna->fp); fna->fp = NULL;
-		}
-		if(fna->path != NULL) {
-			free(fna->path); fna->path = NULL;
-		}
+		zfclose(fna->fp); fna->fp = NULL;
+		free(fna->path); fna->path = NULL;
 		free(fna); fna = NULL;
 	}
 	return;
@@ -1803,6 +1795,29 @@ unittest()
 
 	/** cleanup files */
 	remove(gfa_filename);
+	return;
+}
+
+/**
+ * format detection (fail)
+ */
+unittest()
+{
+	char const *fail_filename = "test_fail.txt";
+	char const *fail_content = "A quick brown fox jumps over the lazy dog.\n";
+	assert(fdump(fail_filename, fail_content));
+	assert(fcmp(fail_filename, strlen(fail_content), (uint8_t const *)fail_content));
+	fna_t *fna = fna_init(fail_filename, NULL);
+	assert(fna != NULL, "fna(%p)", fna);
+
+	/* format detection (internal) */
+	assert(fna->file_format == 0, "fna->file_format(%d)", fna->file_format);
+	assert(fna->status == FNA_ERROR_UNKNOWN_FORMAT, "fna->status(%d)", FNA_ERROR_UNKNOWN_FORMAT);
+
+	fna_close(fna);
+
+	/** cleanup file */
+	remove(fail_filename);
 	return;
 }
 
