@@ -978,6 +978,9 @@ int fna_read_head_gfa(
 	/* check version */
 	uint64_t version = fna_parse_version_string(&((char const *)kv_ptr(buf))[strlen(prefix)]);
 
+	/* cleanup */
+	kv_destroy(buf);
+
 	debug("%llx", version);
 	return((version >= 0x10000) ? FNA_SUCCESS : FNA_ERROR_UNSUPPORTED_VERSION);
 }
@@ -1460,6 +1463,7 @@ int fcmp(char const *filename, int64_t size, uint8_t const *arr)
 	fread(buf, st.st_size, sizeof(uint8_t), fp);
 	res = memcmp(buf, arr, size);
 	free(buf);
+	fclose(fp);
 	return(res == 0);
 }
 
