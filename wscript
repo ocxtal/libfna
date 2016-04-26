@@ -11,7 +11,7 @@ def configure(conf):
 	conf.load('ar')
 	conf.load('compiler_c')
 
-	conf.env.append_value('CFLAGS', '-g')
+	conf.env.append_value('CFLAGS', '-O3')
 	conf.env.append_value('CFLAGS', '-std=c99')
 	conf.env.append_value('CFLAGS', '-march=native')
 
