@@ -1224,7 +1224,6 @@ void fna_seq_free(fna_seq_t *seq)
 			/* segment */
 			char const *name_base = (char *)(s + 1);
 			if(s->s.segment.name != name_base) { free(s->s.segment.name); }
-			
 			uint8_t const *seq_base = (uint8_t const *)(
 				name_base + s->seq_head_margin + s->s.segment.name_len + 1);
 			if(s->s.segment.seq != seq_base) { free(s->s.segment.seq); }
@@ -1232,6 +1231,10 @@ void fna_seq_free(fna_seq_t *seq)
 			uint8_t const *qual_base = (uint8_t const *)(
 				seq_base + s->seq_tail_margin + s->s.segment.seq_len + 1);
 			if(s->s.segment.qual != qual_base) { free(s->s.segment.qual); }
+
+			s->s.segment.name = NULL;
+			s->s.segment.seq = NULL;
+			s->s.segment.qual = NULL;
 
 		} else if(s->type == FNA_LINK) {
 
@@ -1245,6 +1248,9 @@ void fna_seq_free(fna_seq_t *seq)
 			char const *cigar_base = to_base + s->s.link.to_len + 1;
 			if(s->s.link.cigar != cigar_base) { free(s->s.link.cigar); }
 
+			s->s.link.from = NULL;
+			s->s.link.to = NULL;
+			s->s.link.cigar = NULL;
 		}
 
 		/* free context */
