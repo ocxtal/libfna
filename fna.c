@@ -33,24 +33,22 @@
  *   fna_t (alias to struct _fna): sequence reader instance container.
  *     path: path to the file.
  *   fna_seq_t (alias to struct _fna_seq): sequence container.
- *     name: sequence name container (kvec_t(char) instance)
+ *     name: sequence name container (lmm_kvec_t(char) instance)
  *       name.a: pointer to the sequence name (null-terminated ASCII).
- *     seq: sequence container (kvec_t(uint8_t) or kpvec_t(uint8_t) instance)
+ *     seq: sequence container (lmm_kvec_t(uint8_t) or kpvec_t(uint8_t) instance)
  *       seq.a: pointer to the sequence (null-terminated when fna->seq_encode == FNA_RAW)
  */
 
 #define UNITTEST_UNIQUE_ID			33
-#define UNITTEST 					1
-
 #include "unittest.h"
 
 #include <stdint.h>
 #include <string.h>
 #include "zf/zf.h"
-#include "fna.h"
-#include "kvec.h"
-#include "sassert.h"
+#include "lmm.h"
 #include "log.h"
+#include "sassert.h"
+#include "fna.h"
 
 
 /* inline directive */
@@ -60,7 +58,7 @@
 #define _roundup(x, base)			( (((x) + (base) - 1) / (base)) * (base) )
 
 /* type aliasing for returning values */
-typedef kvec_t(uint8_t) kvec_uint8_t;
+typedef lmm_kvec_t(uint8_t) lmm_kvec_uint8_t;
 
 /**
  * @struct fna_read_ret_s
@@ -76,13 +74,14 @@ struct fna_read_ret_s {
  * @brief a struct for fna context
  */
 struct fna_context_s {
+	lmm_t *lmm;					/** lmm memory manager */
 	char *path;
 	uint8_t file_format;
 	uint8_t seq_encode;
 	uint16_t options;
 	int32_t status;
-	zf_t *fp;				/** zf context (file pointer) */
-	uint16_t head_margin;	/** margin at the head of fna_seq_t */
+	zf_t *fp;					/** zf context (file pointer) */
+	uint16_t head_margin;		/** margin at the head of fna_seq_t */
 	uint16_t tail_margin;
 	uint16_t seq_head_margin;	/** margin at the head of seq buffer */
 	uint16_t seq_tail_margin;	/** margin at the tail of seq buffer */
@@ -91,7 +90,7 @@ struct fna_context_s {
 	struct fna_seq_intl_s *(*read)(struct fna_context_s *fna);
 
 	/* output sequence format specific parser */
-	struct fna_read_ret_s (*read_seq)(struct fna_context_s *fna, kvec_uint8_t *v, uint8_t const *delim_table);
+	struct fna_read_ret_s (*read_seq)(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
 };
 _static_assert_offset(struct fna_s, path, struct fna_context_s, path, 0);
 _static_assert_offset(struct fna_s, file_format, struct fna_context_s, file_format, 0);
@@ -104,8 +103,9 @@ _static_assert_offset(struct fna_s, status, struct fna_context_s, status, 0);
  * @brief a struct which contains individual sequence.
  */
 struct fna_seq_intl_s {
-	uint8_t type;			/** type, seq or link */
-	uint8_t seq_encode;		/** one of _fna_flag_encode */
+	lmm_t *lmm;					/** lmm memory manager */
+	uint8_t type;				/** type, seq or link */
+	uint8_t seq_encode;			/** one of _fna_flag_encode */
 	uint16_t options;
 	union fna_seq_body_intl_u {
 		struct {
@@ -165,11 +165,11 @@ static struct fna_seq_intl_s *fna_read_fastq(struct fna_context_s *fna);
 static struct fna_seq_intl_s *fna_read_fast5(struct fna_context_s *fna);
 static struct fna_seq_intl_s *fna_read_gfa(struct fna_context_s *fna);
 
-static struct fna_read_ret_s fna_read_seq_ascii(struct fna_context_s *fna, kvec_uint8_t *v, uint8_t const *delim_table);
-static struct fna_read_ret_s fna_read_seq_2bit(struct fna_context_s *fna, kvec_uint8_t *v, uint8_t const *delim_table);
-static struct fna_read_ret_s fna_read_seq_2bitpacked(struct fna_context_s *fna, kvec_uint8_t *v, uint8_t const *delim_table);
-static struct fna_read_ret_s fna_read_seq_4bit(struct fna_context_s *fna, kvec_uint8_t *v, uint8_t const *delim_table);
-static struct fna_read_ret_s fna_read_seq_4bitpacked(struct fna_context_s *fna, kvec_uint8_t *v, uint8_t const *delim_table);
+static struct fna_read_ret_s fna_read_seq_ascii(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
+static struct fna_read_ret_s fna_read_seq_2bit(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
+static struct fna_read_ret_s fna_read_seq_2bitpacked(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
+static struct fna_read_ret_s fna_read_seq_4bit(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
+static struct fna_read_ret_s fna_read_seq_4bitpacked(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
 
 /**
  * @fn fna_init
@@ -226,7 +226,7 @@ fna_t *fna_init(
 	/* pack functions */
 	struct fna_read_ret_s (*read_seq[])(
 		struct fna_context_s *fna,
-		kvec_uint8_t *v,
+		lmm_kvec_uint8_t *v,
 		uint8_t const *delim_table) = {
 		[FNA_ASCII] = fna_read_seq_ascii,
 		[FNA_2BIT] = fna_read_seq_2bit,
@@ -237,6 +237,7 @@ fna_t *fna_init(
 
 	/* default params */
 	struct fna_params_s default_params = {
+		.lmm = NULL,
 		.seq_encode = FNA_ASCII,
 		.file_format = FNA_UNKNOWN,
 		.options = 0,
@@ -249,9 +250,11 @@ fna_t *fna_init(
 	if(path == NULL) { return NULL; }
 	if(params == NULL) { params = &default_params; }
 
-	if((fna = (struct fna_context_s *)malloc(sizeof(struct fna_context_s))) == NULL) {
+	lmm_t *lmm = params->lmm;
+	if((fna = (struct fna_context_s *)lmm_malloc(lmm, sizeof(struct fna_context_s))) == NULL) {
 		goto _fna_init_error_handler;
 	}
+	fna->lmm = lmm;
 	fna->path = NULL;
 	fna->fp = NULL;
 
@@ -316,7 +319,7 @@ fna_t *fna_init(
 	#endif
 	fna->read = read[fna->file_format];
 	fna->read_seq = read_seq[fna->seq_encode];
-	fna->path = strdup(path);
+	fna->path = lmm_strdup(lmm, path);
 
 	/* parse header */
 	if(read_head[fna->file_format](fna) != FNA_SUCCESS) {
@@ -328,7 +331,7 @@ fna_t *fna_init(
 _fna_init_error_handler:
 	if(fna != NULL) {
 		zfclose(fna->fp); fna->fp = NULL;
-		free(fna->path); fna->path = NULL;
+		lmm_free(fna->lmm, fna->path); fna->path = NULL;
 		return((struct fna_s *)fna);
 	}
 	return(NULL);
@@ -345,8 +348,8 @@ void fna_close(fna_t *ctx)
 
 	if(fna != NULL) {
 		zfclose(fna->fp); fna->fp = NULL;
-		free(fna->path); fna->path = NULL;
-		free(fna); fna = NULL;
+		lmm_free(fna->lmm, fna->path); fna->path = NULL;
+		lmm_free(fna->lmm, fna); fna = NULL;
 	}
 	return;
 }
@@ -436,13 +439,14 @@ uint8_t const delim_gfa_field[256] = {
  */
 static _force_inline
 void fna_seq_make_margin(
-	kvec_uint8_t *v,
+	struct fna_context_s *fna,
+	lmm_kvec_uint8_t *v,
 	int64_t len)
 {
-	uint64_t base = kv_size(*v);
-	kv_reserve(*v, base + len);
+	uint64_t base = lmm_kv_size(*v);
+	lmm_kv_reserve(fna->lmm, *v, base + len);
 	for(int64_t i = 0; i < len; i++) {
-		kv_at(*v, base + i) = 0;
+		lmm_kv_at(*v, base + i) = 0;
 	}
 	return;
 }
@@ -467,7 +471,7 @@ uint64_t fna_parse_version_string(
 		}
 		buf[j] = '\0';
 		v[i] = (uint64_t)strtoll(buf, NULL, 10);
-		str++;
+		if(*str++ == '\0') { break; }
 	}
 
 	return(0x10000 * v[0] + 0x100 * v[1] + v[2]);
@@ -480,7 +484,7 @@ uint64_t fna_parse_version_string(
 static _force_inline
 struct fna_read_ret_s fna_read_ascii(
 	struct fna_context_s *fna,
-	kvec_uint8_t *v,
+	lmm_kvec_uint8_t *v,
 	uint8_t const *delim_table)
 {
 	int64_t len = 0;
@@ -492,7 +496,7 @@ struct fna_read_ret_s fna_read_ascii(
 	}
 	if(c == EOF) {
 		debug("reached eof");
-		kv_push(*v, '\0');
+		lmm_kv_push(fna->lmm, *v, '\0');
 		return((struct fna_read_ret_s){
 			.len = len,
 			.c = (char)EOF
@@ -501,20 +505,20 @@ struct fna_read_ret_s fna_read_ascii(
 
 	/* read line until delim */
 	debug("%c, %d", c, c);
-	kv_push(*v, c); len++;
+	lmm_kv_push(fna->lmm, *v, c); len++;
 	while(delim_table[(uint8_t)(c = zfgetc(fna->fp))] == 0) {
 		debug("%c, %d", c, c);
-		kv_push(*v, c); len++;
+		lmm_kv_push(fna->lmm, *v, c); len++;
 	}
 	char cret = (char)c;
 
 	/* strip spaces at the tail */
-	while(len-- > 0 && space_table[(uint8_t)(c = kv_pop(*v))] == 1) {
+	while(len-- > 0 && space_table[(uint8_t)(c = lmm_kv_pop(fna->lmm, *v))] == 1) {
 		debug("%c, %d", c, c);
 	}
-	kv_push(*v, c); len++;	/* push back last non-space char */
+	lmm_kv_push(fna->lmm, *v, c); len++;	/* push back last non-space char */
 
-	kv_push(*v, '\0');		/* push null terminator */
+	lmm_kv_push(fna->lmm, *v, '\0');		/* push null terminator */
 	debug("finished, len(%lld)", len);
 	return((struct fna_read_ret_s){
 		.len = len,
@@ -547,7 +551,7 @@ struct fna_read_ret_s fna_read_skip(
 static
 struct fna_read_ret_s fna_read_seq_ascii(
 	struct fna_context_s *fna,
-	kvec_uint8_t *v,
+	lmm_kvec_uint8_t *v,
 	uint8_t const *delim_table)
 {
 	int c;
@@ -558,9 +562,9 @@ struct fna_read_ret_s fna_read_seq_ascii(
 		if(type & 0x01) { break; }
 		if(type != 0) { continue; }
 		debug("%c, %d", c, c);
-		kv_push(*v, (uint8_t)c); len++;
+		lmm_kv_push(fna->lmm, *v, (uint8_t)c); len++;
 	}
-	kv_push(*v, '\0');
+	lmm_kv_push(fna->lmm, *v, '\0');
 	debug("finished, len(%lld)", len);
 
 	fna->status = zfeof(fna->fp) ? FNA_EOF : FNA_SUCCESS;
@@ -606,7 +610,7 @@ uint8_t fna_encode_2bit(
 static
 struct fna_read_ret_s fna_read_seq_2bit(
 	struct fna_context_s *fna,
-	kvec_uint8_t *v,
+	lmm_kvec_uint8_t *v,
 	uint8_t const *delim_table)
 {
 	int c;
@@ -616,7 +620,7 @@ struct fna_read_ret_s fna_read_seq_2bit(
 		uint8_t type = delim_table[(uint8_t)c];
 		if(type & 0x01) { break; }
 		if(type != 0) { continue; }
-		kv_push(*v, fna_encode_2bit(c)); len++;
+		lmm_kv_push(fna->lmm, *v, fna_encode_2bit(c)); len++;
 	}
 
 	fna->status = zfeof(fna->fp) ? FNA_EOF : FNA_SUCCESS;
@@ -633,7 +637,7 @@ struct fna_read_ret_s fna_read_seq_2bit(
 static
 struct fna_read_ret_s fna_read_seq_2bitpacked(
 	struct fna_context_s *fna,
-	kvec_uint8_t *v,
+	lmm_kvec_uint8_t *v,
 	uint8_t const *delim_table)
 {
 	int c;
@@ -656,12 +660,12 @@ struct fna_read_ret_s fna_read_seq_2bitpacked(
 		arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6); rem -= 2;
 		arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6); rem -= 2;
 		arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6);
-		kv_push(*v, arr); len += 4;
+		lmm_kv_push(fna->lmm, *v, arr); len += 4;
 
 		#undef _fetch
 	}
 _fna_read_seq_2bitpacked_finish:;
-	kv_push(*v, arr>>rem); len += (8 - rem) / 2;
+	lmm_kv_push(fna->lmm, *v, arr>>rem); len += (8 - rem) / 2;
 
 	fna->status = zfeof(fna->fp) ? FNA_EOF : FNA_SUCCESS;
 	return((struct fna_read_ret_s){
@@ -716,7 +720,7 @@ uint8_t fna_encode_4bit(
 static
 struct fna_read_ret_s fna_read_seq_4bit(
 	struct fna_context_s *fna,
-	kvec_uint8_t *v,
+	lmm_kvec_uint8_t *v,
 	uint8_t const *delim_table)
 {
 	int c;
@@ -726,7 +730,7 @@ struct fna_read_ret_s fna_read_seq_4bit(
 		uint8_t type = delim_table[(uint8_t)c];
 		if(type & 0x01) { break; }
 		if(type != 0) { continue; }
-		kv_push(*v, fna_encode_4bit(c)); len++;
+		lmm_kv_push(fna->lmm, *v, fna_encode_4bit(c)); len++;
 	}
 
 	fna->status = zfeof(fna->fp) ? FNA_EOF : FNA_SUCCESS;
@@ -743,7 +747,7 @@ struct fna_read_ret_s fna_read_seq_4bit(
 static
 struct fna_read_ret_s fna_read_seq_4bitpacked(
 	struct fna_context_s *fna,
-	kvec_uint8_t *v,
+	lmm_kvec_uint8_t *v,
 	uint8_t const *delim_table)
 {
 	int c;
@@ -764,12 +768,12 @@ struct fna_read_ret_s fna_read_seq_4bitpacked(
 		rem = 8;
 		arr = (arr>>2) | (fna_encode_4bit(c = _fetch(fna))<<4); rem -= 4;
 		arr = (arr>>2) | (fna_encode_4bit(c = _fetch(fna))<<4);
-		kv_push(*v, arr); len += 2;
+		lmm_kv_push(fna->lmm, *v, arr); len += 2;
 
 		#undef _fetch
 	}
 _fna_read_seq_4bitpacked_finish:;
-	kv_push(*v, arr>>rem); len += (8 - rem) / 4;
+	lmm_kv_push(fna->lmm, *v, arr>>rem); len += (8 - rem) / 4;
 
 	fna->status = zfeof(fna->fp) ? FNA_EOF : FNA_SUCCESS;
 	return((struct fna_read_ret_s){
@@ -799,13 +803,14 @@ static
 struct fna_seq_intl_s *fna_read_fasta(
 	struct fna_context_s *fna)
 {
-	kvec_uint8_t v;
-	kv_init(v);
+	lmm_kvec_uint8_t v;
+	lmm_kv_init(fna->lmm, v);
 
 	/* make margin at the head of seq */
-	fna_seq_make_margin(&v, fna->head_margin);
+	fna_seq_make_margin(fna, &v, fna->head_margin);
 
-	kv_pusha(struct fna_seq_intl_s, v, ((struct fna_seq_intl_s){
+	lmm_kv_pusha(fna->lmm, struct fna_seq_intl_s, v, ((struct fna_seq_intl_s){
+		.lmm = fna->lmm,
 		.type = FNA_SEGMENT,
 		.seq_encode = fna->seq_encode,
 		.options = fna->options,
@@ -814,31 +819,28 @@ struct fna_seq_intl_s *fna_read_fasta(
 		.seq_head_margin = fna->seq_head_margin,
 		.seq_tail_margin = fna->seq_tail_margin
 	}));
-	dump(kv_ptr(v), 64);
 
 	/* parse name */
 	int64_t name_len = fna_read_ascii(fna, &v, delim_line).len;	/* fasta header line must ends with '\n' */
-	dump(kv_ptr(v), 64);
 
 	/* parse seq */
-	fna_seq_make_margin(&v, fna->seq_head_margin);
+	fna_seq_make_margin(fna, &v, fna->seq_head_margin);
 	int64_t seq_len = (fna->read_seq(fna, &v, delim_fasta_seq)).len;
-	dump(kv_ptr(v), 64);
 
 	/* check termination */
 	if(name_len == 0 && seq_len == 0) {
-		kv_destroy(v);
+		lmm_kv_destroy(fna->lmm, v);
 		return(NULL);
 	}
 
 	/* make margin at the tail */
-	fna_seq_make_margin(&v, fna->seq_tail_margin);
-	kv_push(v, '\0');
-	fna_seq_make_margin(&v, fna->tail_margin);
+	fna_seq_make_margin(fna, &v, fna->seq_tail_margin);
+	lmm_kv_push(fna->lmm, v, '\0');
+	fna_seq_make_margin(fna, &v, fna->tail_margin);
 
 	/* finished, build links */
 	struct fna_seq_intl_s *r = (struct fna_seq_intl_s *)(
-		kv_ptr(v) + fna->head_margin);
+		lmm_kv_ptr(v) + fna->head_margin);
 	char *name = (char *)(r + 1);
 	uint8_t *seq = (uint8_t *)(name + (name_len + 1) + r->seq_head_margin);
 	uint8_t *qual = (uint8_t *)(seq + seq_len + 1);
@@ -871,13 +873,14 @@ static
 struct fna_seq_intl_s *fna_read_fastq(
 	struct fna_context_s *fna)
 {
-	kvec_uint8_t v;
-	kv_init(v);
+	lmm_kvec_uint8_t v;
+	lmm_kv_init(fna->lmm, v);
 
 	/* make margin at the head of seq */
-	fna_seq_make_margin(&v, fna->head_margin);
+	fna_seq_make_margin(fna, &v, fna->head_margin);
 
-	kv_pusha(struct fna_seq_intl_s, v, ((struct fna_seq_intl_s){
+	lmm_kv_pusha(fna->lmm, struct fna_seq_intl_s, v, ((struct fna_seq_intl_s){
+		.lmm = fna->lmm,
 		.type = FNA_SEGMENT,
 		.seq_encode = fna->seq_encode,
 		.options = fna->options,
@@ -891,9 +894,9 @@ struct fna_seq_intl_s *fna_read_fastq(
 	int64_t name_len = fna_read_ascii(fna, &v, delim_line).len;
 
 	/* parse seq */
-	fna_seq_make_margin(&v, fna->seq_head_margin);
+	fna_seq_make_margin(fna, &v, fna->seq_head_margin);
 	int64_t seq_len = (fna->read_seq(fna, &v, delim_fastq_qual)).len;
-	fna_seq_make_margin(&v, fna->seq_tail_margin);
+	fna_seq_make_margin(fna, &v, fna->seq_tail_margin);
 
 	/* skip name */
 	fna_read_skip(fna, delim_line);
@@ -902,20 +905,21 @@ struct fna_seq_intl_s *fna_read_fastq(
 	int64_t qual_len = (((fna->options & FNA_SKIP_QUAL) == 0)
 		? fna->read_seq(fna, &v, delim_fastq_seq)
 		: fna_read_skip(fna, delim_fastq_seq)).len;
+	lmm_kv_push(fna->lmm, v, '\0');			/* push null terminator */
 
 	/* check termination */
 	if(name_len == 0 && seq_len == 0) {
-		kv_destroy(v);
+		lmm_kv_destroy(fna->lmm, v);
 		return(NULL);
 	}
 
 	/* make margin at the tail */
-	fna_seq_make_margin(&v, fna->tail_margin);
+	fna_seq_make_margin(fna, &v, fna->tail_margin);
 
 
 	/* finished, build links */
 	struct fna_seq_intl_s *r = (struct fna_seq_intl_s *)(
-		kv_ptr(v) + fna->head_margin);
+		lmm_kv_ptr(v) + fna->head_margin);
 	char *name = (char *)(r + 1);
 	uint8_t *seq = (uint8_t *)(name + (name_len + 1) + r->seq_head_margin);
 	uint8_t *qual = (uint8_t *)(seq + seq_len + 1);
@@ -961,8 +965,8 @@ static
 int fna_read_head_gfa(
 	struct fna_context_s *fna)
 {
-	kvec_uint8_t buf;
-	kv_init(buf);
+	lmm_kvec_uint8_t buf;
+	lmm_kv_init(fna->lmm, buf);
 
 	debug("parse gfa header");
 
@@ -971,16 +975,16 @@ int fna_read_head_gfa(
 
 	/* check prefix */
 	char const *prefix = "H\tVN:Z:";
-	if(strncmp((char const *)kv_ptr(buf), prefix, strlen(prefix)) != 0) {
+	if(strncmp((char const *)lmm_kv_ptr(buf), prefix, strlen(prefix)) != 0) {
 		debug("broken");
 		return(fna->status = FNA_ERROR_BROKEN_FORMAT);
 	}
 
 	/* check version */
-	uint64_t version = fna_parse_version_string(&((char const *)kv_ptr(buf))[strlen(prefix)]);
+	uint64_t version = fna_parse_version_string(&((char const *)lmm_kv_ptr(buf))[strlen(prefix)]);
 
 	/* cleanup */
-	kv_destroy(buf);
+	lmm_kv_destroy(fna->lmm, buf);
 
 	debug("%llx", version);
 	return((version >= 0x10000) ? FNA_SUCCESS : FNA_ERROR_UNSUPPORTED_VERSION);
@@ -993,13 +997,14 @@ static _force_inline
 struct fna_seq_intl_s *fna_read_gfa_seq(
 	struct fna_context_s *fna)
 {
-	kvec_uint8_t v;
-	kv_init(v);
+	lmm_kvec_uint8_t v;
+	lmm_kv_init(fna->lmm, v);
 
 	/* make margin at the head of seq */
-	fna_seq_make_margin(&v, fna->head_margin);
+	fna_seq_make_margin(fna, &v, fna->head_margin);
 
-	kv_pusha(struct fna_seq_intl_s, v, ((struct fna_seq_intl_s){
+	lmm_kv_pusha(fna->lmm, struct fna_seq_intl_s, v, ((struct fna_seq_intl_s){
+		.lmm = fna->lmm,
 		.type = FNA_SEGMENT,
 		.seq_encode = fna->seq_encode,
 		.options = fna->options,
@@ -1008,17 +1013,14 @@ struct fna_seq_intl_s *fna_read_gfa_seq(
 		.seq_head_margin = fna->seq_head_margin,
 		.seq_tail_margin = fna->seq_tail_margin
 	}));
-	dump(kv_ptr(v), 64);
 
 	/* parse name */
 	int64_t name_len = fna_read_ascii(fna, &v, delim_gfa_field).len;
-	dump(kv_ptr(v), 64);
 
 	/* parse seq */
-	fna_seq_make_margin(&v, fna->seq_head_margin);
+	fna_seq_make_margin(fna, &v, fna->seq_head_margin);
 	struct fna_read_ret_s ret = fna->read_seq(fna, &v, delim_gfa_field);
 	int64_t seq_len = ret.len;
-	dump(kv_ptr(v), 64);
 
 	/* check if optional field remains */
 	if(ret.c == '\t') {
@@ -1028,18 +1030,18 @@ struct fna_seq_intl_s *fna_read_gfa_seq(
 
 	/* check termination */
 	if(name_len == 0 && seq_len == 0) {
-		kv_destroy(v);
+		lmm_kv_destroy(fna->lmm, v);
 		return(NULL);
 	}
 
 	/* make margin at the tail */
-	fna_seq_make_margin(&v, fna->seq_tail_margin);
-	kv_push(v, '\0');
-	fna_seq_make_margin(&v, fna->tail_margin);
+	fna_seq_make_margin(fna, &v, fna->seq_tail_margin);
+	lmm_kv_push(fna->lmm, v, '\0');
+	fna_seq_make_margin(fna, &v, fna->tail_margin);
 
 	/* finished, build links */
 	struct fna_seq_intl_s *r = (struct fna_seq_intl_s *)(
-		kv_ptr(v) + fna->head_margin);
+		lmm_kv_ptr(v) + fna->head_margin);
 	char *name = (char *)(r + 1);
 	uint8_t *seq = (uint8_t *)(name + (name_len + 1) + r->seq_head_margin);
 	uint8_t *qual = (uint8_t *)(seq + seq_len + 1);
@@ -1058,13 +1060,14 @@ static _force_inline
 struct fna_seq_intl_s *fna_read_gfa_link(
 	struct fna_context_s *fna)
 {
-	kvec_uint8_t v;
-	kv_init(v);
+	lmm_kvec_uint8_t v;
+	lmm_kv_init(fna->lmm, v);
 
 	/* make margin at the head of seq */
-	fna_seq_make_margin(&v, fna->head_margin);
+	fna_seq_make_margin(fna, &v, fna->head_margin);
 
-	kv_pusha(struct fna_seq_intl_s, v, ((struct fna_seq_intl_s){
+	lmm_kv_pusha(fna->lmm, struct fna_seq_intl_s, v, ((struct fna_seq_intl_s){
+		.lmm = fna->lmm,
 		.type = FNA_LINK,
 		.seq_encode = fna->seq_encode,
 		.options = fna->options,
@@ -1112,11 +1115,11 @@ struct fna_seq_intl_s *fna_read_gfa_link(
 	}
 
 	/* make margin at the tail */
-	fna_seq_make_margin(&v, fna->tail_margin);
+	fna_seq_make_margin(fna, &v, fna->tail_margin);
 
 	/* finished, build links */
 	struct fna_seq_intl_s *r = (struct fna_seq_intl_s *)(
-		kv_ptr(v) + fna->head_margin);
+		lmm_kv_ptr(v) + fna->head_margin);
 	char *from = (char *)(r + 1);
 	char *to = from + (ret_from.len + 1);
 	char *cig = to + (ret_to.len + 1);
@@ -1229,14 +1232,21 @@ void fna_seq_free(fna_seq_t *seq)
 
 			/* segment */
 			char const *name_base = (char *)(s + 1);
-			if(s->s.segment.name != name_base) { free(s->s.segment.name); }
+			if(s->s.segment.name != name_base) {
+				lmm_free(s->lmm, s->s.segment.name);
+			}
+
 			uint8_t const *seq_base = (uint8_t const *)(
 				name_base + s->seq_head_margin + s->s.segment.name_len + 1);
-			if(s->s.segment.seq != seq_base) { free(s->s.segment.seq); }
+			if(s->s.segment.seq != seq_base) {
+				lmm_free(s->lmm, s->s.segment.seq);
+			}
 			
 			uint8_t const *qual_base = (uint8_t const *)(
 				seq_base + s->seq_tail_margin + s->s.segment.seq_len + 1);
-			if(s->s.segment.qual != qual_base) { free(s->s.segment.qual); }
+			if(s->s.segment.qual != qual_base) {
+				lmm_free(s->lmm, s->s.segment.qual);
+			}
 
 			s->s.segment.name = NULL;
 			s->s.segment.seq = NULL;
@@ -1246,13 +1256,19 @@ void fna_seq_free(fna_seq_t *seq)
 
 			/* link */
 			char const *from_base = (char *)(s + 1);
-			if(s->s.link.from != from_base) { free(s->s.link.from); }
+			if(s->s.link.from != from_base) {
+				lmm_free(s->lmm, s->s.link.from);
+			}
 
 			char const *to_base = from_base + s->s.link.from_len + 1;
-			if(s->s.link.to != to_base) { free(s->s.link.to); }
+			if(s->s.link.to != to_base) {
+				lmm_free(s->lmm, s->s.link.to);
+			}
 
 			char const *cigar_base = to_base + s->s.link.to_len + 1;
-			if(s->s.link.cigar != cigar_base) { free(s->s.link.cigar); }
+			if(s->s.link.cigar != cigar_base) {
+				lmm_free(s->lmm, s->s.link.cigar);
+			}
 
 			s->s.link.from = NULL;
 			s->s.link.to = NULL;
@@ -1260,7 +1276,7 @@ void fna_seq_free(fna_seq_t *seq)
 		}
 
 		/* free context */
-		free((void *)((uint8_t *)s - s->head_margin));
+		lmm_free(s->lmm, (void *)((uint8_t *)s - s->head_margin));
 	}
 	return;
 }
@@ -1305,19 +1321,19 @@ void fna_append(
 		return;
 	}
 	if(dst->seq_encode == FNA_RAW) {
-		(void)kv_pop(dst->seq);
+		(void)lmm_kv_pop(dst->seq);
 	}
 	dst->len += size;
 	if(src->seq_encode == FNA_RAW) {
-		kv_reserve(dst->seq, dst->len + 1);
+		lmm_kv_reserve(dst->seq, dst->len + 1);
 		for(i = 0; i < size; i++) {
-			kv_push(dst->seq, kv_at(src->seq, i));
+			lmm_kv_push(dst->seq, lmm_kv_at(src->seq, i));
 		}
-		kv_push(dst->seq, '\0');
+		lmm_kv_push(dst->seq, '\0');
 	} else if(src->seq_encode == FNA_2BIT) {
-		kv_reserve(dst->seq, dst->len);
+		lmm_kv_reserve(dst->seq, dst->len);
 		for(i = 0; i < size; i++) {
-			kv_push(dst->seq, kv_at(src->seq, i));
+			lmm_kv_push(dst->seq, lmm_kv_at(src->seq, i));
 		}
 	} else if(src->seq_encode == FNA_2BITPACKED) {
 		kpv_reserve(dst->seq, dst->len);
@@ -1344,11 +1360,11 @@ fna_seq_t *fna_duplicate(
 	dup->head_margin = seq->head_margin;		/** set head margin size */
 	dup->tail_margin = seq->tail_margin;
 
-	kv_init(dup->name);
-	kv_init(dup->seq);
+	lmm_kv_init(dup->name);
+	lmm_kv_init(dup->seq);
 	dup->len = 0;
 	if(seq->s.segment.seq_encode == FNA_RAW) {
-		kv_push(dup->seq, '\0');
+		lmm_kv_push(dup->seq, '\0');
 	}
 
 	fna_append((fna_seq_t *)dup, (fna_seq_t *)seq);
@@ -1379,22 +1395,22 @@ void fna_append_revcomp(
 	}
 
 	if(dst->seq_encode == FNA_RAW) {
-		(void)kv_pop(dst->seq);
+		(void)lmm_kv_pop(dst->seq);
 	}
 	dst->len += size;
 	if(src->seq_encode == FNA_RAW) {
-		kv_reserve(dst->seq, dst->len + 1);
+		lmm_kv_reserve(dst->seq, dst->len + 1);
 		for(i = 0; i < size; i++) {
-			kv_push(dst->seq, fna_base_comp(kv_at(src->seq, size - i - 1)));
+			lmm_kv_push(dst->seq, fna_base_comp(lmm_kv_at(src->seq, size - i - 1)));
 		}
-		kv_push(dst->seq, '\0');
+		lmm_kv_push(dst->seq, '\0');
 	} else if(src->seq_encode == FNA_2BIT) {
-		kv_reserve(dst->seq, dst->len);
+		lmm_kv_reserve(dst->seq, dst->len);
 		for(i = 0; i < size; i++) {
-			kv_push(dst->seq, 0x03 - kv_at(src->seq, size - i - 1));
+			lmm_kv_push(dst->seq, 0x03 - lmm_kv_at(src->seq, size - i - 1));
 		}
 	} else if(src->seq_encode == FNA_2BITPACKED) {
-		kv_reserve(dst->seq, dst->len);
+		lmm_kv_reserve(dst->seq, dst->len);
 		for(i = 0; i < size; i++) {
 			kpv_push(dst->seq, 0x03 - kpv_at(src->seq, size - i - 1));
 		}
@@ -1417,11 +1433,11 @@ fna_seq_t *fna_revcomp(
 	rev->head_margin = seq->head_margin;		/** set head margin size */
 	rev->tail_margin = seq->tail_margin;
 
-	kv_init(rev->name);
-	kv_init(rev->seq);
+	lmm_kv_init(rev->name);
+	lmm_kv_init(rev->seq);
 	rev->len = 0;
 	if(seq->s.segment.seq_encode == FNA_RAW) {
-		kv_push(rev->seq, '\0');
+		lmm_kv_push(rev->seq, '\0');
 	}
 
 	fna_append_revcomp((fna_seq_t *)rev, (fna_seq_t *)seq);

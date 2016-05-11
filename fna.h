@@ -109,6 +109,8 @@ struct fna_params_s {
 	uint16_t tail_margin;		/** margin at the tail of fna_seq_t	*/
 	uint16_t seq_head_margin;	/** margin at the head of seq buffer */
 	uint16_t seq_tail_margin;	/** margin at the tail of seq buffer */
+	uint16_t reserved[2];
+	void *lmm;					/** lmm memory manager */
 };
 typedef struct fna_params_s fna_params_t;
 
@@ -120,12 +122,13 @@ typedef struct fna_params_s fna_params_t;
  * @brief a struct for fna context
  */
 struct fna_s {
+	void *reserved1;
 	char *path;
 	uint8_t file_format;		/** see enum fna_format */
 	uint8_t seq_encode;			/** see enum fna_flag_encode */
 	uint16_t options;
 	int32_t status;				/** see enum fna_status */
-	uint32_t reserved1[7];
+	uint32_t reserved2[7];
 };
 typedef struct fna_s fna_t;
 
@@ -135,6 +138,7 @@ typedef struct fna_s fna_t;
  * @brief a struct to contain parsed sequence.
  */
 struct fna_seq_s {
+	void *reserved1;
 	uint8_t type;
 	uint8_t seq_encode;			/** one of fna_flag_encode */
 	uint16_t options;
