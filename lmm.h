@@ -319,8 +319,8 @@ int main() {
 	: 0), (v).a[(i)])
 
 /** bound-unchecked accessor */
-#define lmm_kv_at(v, i) ( (v).a[(i)] )
-#define lmm_kv_ptr(v)  ( (v).a )
+#define lmm_kv_at(v, i)			( (v).a[(i)] )
+#define lmm_kv_ptr(v)			( (v).a )
 
 /** heap queue : elements in v must be orderd in heap */
 #define lmm_kv_hq_init(lmm, v)		{ lmm_kv_init(lmm, v); (v).n = 1; }
