@@ -1102,7 +1102,7 @@ struct fna_seq_intl_s *fna_read_gfa_link(
 		return(NULL);
 	}
 
-	/* parse to field */
+	/* parse cigar field */
 	struct fna_read_ret_s ret_cig = fna_read_ascii(fna, &v, delim_gfa_field);
 
 	/* check if optional field remains */
@@ -1120,6 +1120,12 @@ struct fna_seq_intl_s *fna_read_gfa_link(
 	char *from = (char *)(r + 1);
 	char *to = from + (ret_from.len + 1);
 	char *cig = to + (ret_to.len + 1);
+
+	/* replace "*" with "" */
+	if(cig[0] == '*') {
+		cig[0] = '\0';
+		ret_cig.len = 0;
+	}
 
 	return(_fna_pack_link(r,
 		from, ret_from.len, from_ori,
