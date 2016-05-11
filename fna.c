@@ -107,7 +107,7 @@ struct fna_seq_intl_s {
 	uint8_t type;			/** type, seq or link */
 	uint8_t seq_encode;		/** one of _fna_flag_encode */
 	uint16_t options;
-	union {
+	union fna_seq_body_intl_u {
 		struct {
 			char *name;					/** sequence name */
 			int32_t name_len;
@@ -127,7 +127,7 @@ struct fna_seq_intl_s {
 			char *cigar;				/** contains link cigar string */
 			int64_t cigar_len;			/** contains link cigar string length (== strlen(seq)) */
 		} link;
-	};
+	} s;
 	uint16_t head_margin;	/** margin at the head of fna_seq_t */
 	uint16_t tail_margin;
 	uint16_t seq_head_margin;	/** margin at the head of seq buffer */
@@ -138,20 +138,20 @@ _static_assert_offset(struct fna_seq_s, seq_encode, struct fna_seq_intl_s, seq_e
 _static_assert_offset(struct fna_seq_s, options, struct fna_seq_intl_s, options, 0);
 
 /* segment members */
-_static_assert_offset(struct fna_seq_s, segment.name, struct fna_seq_intl_s, segment.name, 0);
-_static_assert_offset(struct fna_seq_s, segment.name_len, struct fna_seq_intl_s, segment.name_len, 0);
-_static_assert_offset(struct fna_seq_s, segment.seq, struct fna_seq_intl_s, segment.seq, 0);
-_static_assert_offset(struct fna_seq_s, segment.seq_len, struct fna_seq_intl_s, segment.seq_len, 0);
-_static_assert_offset(struct fna_seq_s, segment.qual, struct fna_seq_intl_s, segment.qual, 0);
-_static_assert_offset(struct fna_seq_s, segment.qual_len, struct fna_seq_intl_s, segment.qual_len, 0);
+_static_assert_offset(struct fna_seq_s, s.segment.name, struct fna_seq_intl_s, s.segment.name, 0);
+_static_assert_offset(struct fna_seq_s, s.segment.name_len, struct fna_seq_intl_s, s.segment.name_len, 0);
+_static_assert_offset(struct fna_seq_s, s.segment.seq, struct fna_seq_intl_s, s.segment.seq, 0);
+_static_assert_offset(struct fna_seq_s, s.segment.seq_len, struct fna_seq_intl_s, s.segment.seq_len, 0);
+_static_assert_offset(struct fna_seq_s, s.segment.qual, struct fna_seq_intl_s, s.segment.qual, 0);
+_static_assert_offset(struct fna_seq_s, s.segment.qual_len, struct fna_seq_intl_s, s.segment.qual_len, 0);
 
 /* link members */
-_static_assert_offset(struct fna_seq_s, link.from, struct fna_seq_intl_s, link.from, 0);
-_static_assert_offset(struct fna_seq_s, link.from_len, struct fna_seq_intl_s, link.from_len, 0);
-_static_assert_offset(struct fna_seq_s, link.to, struct fna_seq_intl_s, link.to, 0);
-_static_assert_offset(struct fna_seq_s, link.to_len, struct fna_seq_intl_s, link.to_len, 0);
-_static_assert_offset(struct fna_seq_s, link.cigar, struct fna_seq_intl_s, link.cigar, 0);
-_static_assert_offset(struct fna_seq_s, link.cigar_len, struct fna_seq_intl_s, link.cigar_len, 0);
+_static_assert_offset(struct fna_seq_s, s.link.from, struct fna_seq_intl_s, s.link.from, 0);
+_static_assert_offset(struct fna_seq_s, s.link.from_len, struct fna_seq_intl_s, s.link.from_len, 0);
+_static_assert_offset(struct fna_seq_s, s.link.to, struct fna_seq_intl_s, s.link.to, 0);
+_static_assert_offset(struct fna_seq_s, s.link.to_len, struct fna_seq_intl_s, s.link.to_len, 0);
+_static_assert_offset(struct fna_seq_s, s.link.cigar, struct fna_seq_intl_s, s.link.cigar, 0);
+_static_assert_offset(struct fna_seq_s, s.link.cigar_len, struct fna_seq_intl_s, s.link.cigar_len, 0);
 
 
 /* function delcarations */
@@ -359,12 +359,12 @@ void fna_close(fna_t *ctx)
  * @macro _fna_pack_segment
  */
 #define _fna_pack_segment(_seg, _name, _name_len, _seq, _seq_len, _qual, _qual_len) ({ \
-	(_seg)->segment.name = (_name); \
-	(_seg)->segment.name_len = (_name_len); \
-	(_seg)->segment.seq = (_seq); \
-	(_seg)->segment.seq_len = (_seq_len); \
-	(_seg)->segment.qual = (_qual); \
-	(_seg)->segment.qual_len = (_qual_len); \
+	(_seg)->s.segment.name = (_name); \
+	(_seg)->s.segment.name_len = (_name_len); \
+	(_seg)->s.segment.seq = (_seq); \
+	(_seg)->s.segment.seq_len = (_seq_len); \
+	(_seg)->s.segment.qual = (_qual); \
+	(_seg)->s.segment.qual_len = (_qual_len); \
 	(_seg); \
 })
 
@@ -372,14 +372,14 @@ void fna_close(fna_t *ctx)
  * @macro _fna_pack_link
  */
 #define _fna_pack_link(_link, _from, _from_len, _from_ori, _to, _to_len, _to_ori, _cigar, _cigar_len) ({ \
-	(_link)->link.from = (_from); \
-	(_link)->link.from_len = (_from_len); \
-	(_link)->link.from_ori = (_from_ori); \
-	(_link)->link.to = (_to); \
-	(_link)->link.to_len = (_to_len); \
-	(_link)->link.to_ori = (_to_ori); \
-	(_link)->link.cigar = (_cigar); \
-	(_link)->link.cigar_len = (_cigar_len); \
+	(_link)->s.link.from = (_from); \
+	(_link)->s.link.from_len = (_from_len); \
+	(_link)->s.link.from_ori = (_from_ori); \
+	(_link)->s.link.to = (_to); \
+	(_link)->s.link.to_len = (_to_len); \
+	(_link)->s.link.to_ori = (_to_ori); \
+	(_link)->s.link.cigar = (_cigar); \
+	(_link)->s.link.cigar_len = (_cigar_len); \
 	(_link); \
 })
 
@@ -1223,27 +1223,27 @@ void fna_seq_free(fna_seq_t *seq)
 
 			/* segment */
 			char const *name_base = (char *)(s + 1);
-			if(s->segment.name != name_base) { free(s->segment.name); }
+			if(s->s.segment.name != name_base) { free(s->s.segment.name); }
 			
 			uint8_t const *seq_base = (uint8_t const *)(
-				name_base + s->seq_head_margin + s->segment.name_len + 1);
-			if(s->segment.seq != seq_base) { free(s->segment.seq); }
+				name_base + s->seq_head_margin + s->s.segment.name_len + 1);
+			if(s->s.segment.seq != seq_base) { free(s->s.segment.seq); }
 			
 			uint8_t const *qual_base = (uint8_t const *)(
-				seq_base + s->seq_tail_margin + s->segment.seq_len + 1);
-			if(s->segment.qual != qual_base) { free(s->segment.qual); }
+				seq_base + s->seq_tail_margin + s->s.segment.seq_len + 1);
+			if(s->s.segment.qual != qual_base) { free(s->s.segment.qual); }
 
 		} else if(s->type == FNA_LINK) {
 
 			/* link */
 			char const *from_base = (char *)(s + 1);
-			if(s->link.from != from_base) { free(s->link.from); }
+			if(s->s.link.from != from_base) { free(s->s.link.from); }
 
-			char const *to_base = from_base + s->link.from_len + 1;
-			if(s->link.to != to_base) { free(s->link.to); }
+			char const *to_base = from_base + s->s.link.from_len + 1;
+			if(s->s.link.to != to_base) { free(s->s.link.to); }
 
-			char const *cigar_base = to_base + s->link.to_len + 1;
-			if(s->link.cigar != cigar_base) { free(s->link.cigar); }
+			char const *cigar_base = to_base + s->s.link.to_len + 1;
+			if(s->s.link.cigar != cigar_base) { free(s->s.link.cigar); }
 
 		}
 
@@ -1335,15 +1335,15 @@ fna_seq_t *fna_duplicate(
 	kv_init(dup->name);
 	kv_init(dup->seq);
 	dup->len = 0;
-	if(seq->segment.seq_encode == FNA_RAW) {
+	if(seq->s.segment.seq_encode == FNA_RAW) {
 		kv_push(dup->seq, '\0');
 	}
 
 	fna_append((fna_seq_t *)dup, (fna_seq_t *)seq);
 
-	dup->name = seq->segment.name;
-	dup->name.a = strdup(seq->segment.name.a);
-	dup->seq_encode = seq->segment.seq_encode;
+	dup->name = seq->s.segment.name;
+	dup->name.a = strdup(seq->s.segment.name.a);
+	dup->seq_encode = seq->s.segment.seq_encode;
 	return((fna_seq_t *)dup);
 }
 
@@ -1408,15 +1408,15 @@ fna_seq_t *fna_revcomp(
 	kv_init(rev->name);
 	kv_init(rev->seq);
 	rev->len = 0;
-	if(seq->segment.seq_encode == FNA_RAW) {
+	if(seq->s.segment.seq_encode == FNA_RAW) {
 		kv_push(rev->seq, '\0');
 	}
 
 	fna_append_revcomp((fna_seq_t *)rev, (fna_seq_t *)seq);
 
-	rev->name = seq->segment.name;
-	rev->name.a = strdup(seq->segment.name.a);
-	rev->seq_encode = seq->segment.seq_encode;
+	rev->name = seq->s.segment.name;
+	rev->name.a = strdup(seq->s.segment.name.a);
+	rev->seq_encode = seq->s.segment.seq_encode;
 	return((fna_seq_t *)rev);
 }
 #endif
@@ -1516,30 +1516,30 @@ unittest()
 
 	/* test0 */
 	fna_seq_t *seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test0") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp(seq->s.segment.name, "test0") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
 	fna_seq_free(seq);
 
 	/* test1 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test1") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 8, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp(seq->s.segment.name, "test1") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 8, "len(%lld)", seq->s.segment.seq_len);
 	fna_seq_free(seq);
 
 	/* test2 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test2") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp(seq->s.segment.name, "test2") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
 	fna_seq_free(seq);
 
 	/* test3 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test3") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp(seq->s.segment.name, "test3") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
 	fna_seq_free(seq);
 
 	/* test eof */
@@ -1582,38 +1582,38 @@ unittest()
 
 	/* test0 */
 	fna_seq_t *seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test0") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
-	assert(strcmp((char const *)seq->segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->segment.qual);
-	assert(seq->segment.qual_len == 4, "len(%lld)", seq->segment.qual_len);
+	assert(strcmp(seq->s.segment.name, "test0") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp((char const *)seq->s.segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
+	assert(seq->s.segment.qual_len == 4, "len(%lld)", seq->s.segment.qual_len);
 	fna_seq_free(seq);
 
 	/* test1 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test1") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 8, "len(%lld)", seq->segment.seq_len);
-	assert(strcmp((char const *)seq->segment.qual, "NNNNNNNN") == 0, "seq(%s)", (char const *)seq->segment.qual);
-	assert(seq->segment.qual_len == 8, "len(%lld)", seq->segment.qual_len);
+	assert(strcmp(seq->s.segment.name, "test1") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 8, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp((char const *)seq->s.segment.qual, "NNNNNNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
+	assert(seq->s.segment.qual_len == 8, "len(%lld)", seq->s.segment.qual_len);
 	fna_seq_free(seq);
 
 	/* test2 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test2") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
-	assert(strcmp((char const *)seq->segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->segment.qual);
-	assert(seq->segment.qual_len == 4, "len(%lld)", seq->segment.qual_len);
+	assert(strcmp(seq->s.segment.name, "test2") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp((char const *)seq->s.segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
+	assert(seq->s.segment.qual_len == 4, "len(%lld)", seq->s.segment.qual_len);
 	fna_seq_free(seq);
 
 	/* test3 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test3") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
-	assert(strcmp((char const *)seq->segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->segment.qual);
-	assert(seq->segment.qual_len == 4, "len(%lld)", seq->segment.qual_len);
+	assert(strcmp(seq->s.segment.name, "test3") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp((char const *)seq->s.segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
+	assert(seq->s.segment.qual_len == 4, "len(%lld)", seq->s.segment.qual_len);
 	fna_seq_free(seq);
 
 	/* test eof */
@@ -1655,38 +1655,38 @@ unittest()
 
 	/* test0 */
 	fna_seq_t *seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test0") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
-	assert(strcmp((char const *)seq->segment.qual, "") == 0, "seq(%s)", (char const *)seq->segment.qual);
-	assert(seq->segment.qual_len == 0, "len(%lld)", seq->segment.qual_len);
+	assert(strcmp(seq->s.segment.name, "test0") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp((char const *)seq->s.segment.qual, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
+	assert(seq->s.segment.qual_len == 0, "len(%lld)", seq->s.segment.qual_len);
 	fna_seq_free(seq);
 
 	/* test1 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test1") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 8, "len(%lld)", seq->segment.seq_len);
-	assert(strcmp((char const *)seq->segment.qual, "") == 0, "seq(%s)", (char const *)seq->segment.qual);
-	assert(seq->segment.qual_len == 0, "len(%lld)", seq->segment.qual_len);
+	assert(strcmp(seq->s.segment.name, "test1") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 8, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp((char const *)seq->s.segment.qual, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
+	assert(seq->s.segment.qual_len == 0, "len(%lld)", seq->s.segment.qual_len);
 	fna_seq_free(seq);
 
 	/* test2 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test2") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
-	assert(strcmp((char const *)seq->segment.qual, "") == 0, "seq(%s)", (char const *)seq->segment.qual);
-	assert(seq->segment.qual_len == 0, "len(%lld)", seq->segment.qual_len);
+	assert(strcmp(seq->s.segment.name, "test2") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp((char const *)seq->s.segment.qual, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
+	assert(seq->s.segment.qual_len == 0, "len(%lld)", seq->s.segment.qual_len);
 	fna_seq_free(seq);
 
 	/* test3 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->segment.name, "test3") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 4, "len(%lld)", seq->segment.seq_len);
-	assert(strcmp((char const *)seq->segment.qual, "") == 0, "seq(%s)", (char const *)seq->segment.qual);
-	assert(seq->segment.qual_len == 0, "len(%lld)", seq->segment.qual_len);
+	assert(strcmp(seq->s.segment.name, "test3") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp((char const *)seq->s.segment.qual, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
+	assert(seq->s.segment.qual_len == 0, "len(%lld)", seq->s.segment.qual_len);
 	fna_seq_free(seq);
 
 	/* test eof */
@@ -1732,55 +1732,55 @@ unittest()
 	/* segment 11 */
 	fna_seq_t *seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
-	assert(strcmp(seq->segment.name, "11") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "ACCTT") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 5, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp(seq->s.segment.name, "11") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "ACCTT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 5, "len(%lld)", seq->s.segment.seq_len);
 	fna_seq_free(seq);
 
 	/* segment 12 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
-	assert(strcmp(seq->segment.name, "12") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "TCAAGG") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 6, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp(seq->s.segment.name, "12") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "TCAAGG") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 6, "len(%lld)", seq->s.segment.seq_len);
 	fna_seq_free(seq);
 
 	/* segment 13 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
-	assert(strcmp(seq->segment.name, "13") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "CTTGATT") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 7, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp(seq->s.segment.name, "13") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "CTTGATT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 7, "len(%lld)", seq->s.segment.seq_len);
 	fna_seq_free(seq);
 
 	/* link 11 to 12 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_LINK, "type(%d)", seq->type);
-	assert(strcmp(seq->link.from, "11") == 0, "from(%s)", seq->link.from);
-	assert(seq->link.from_ori == 1, "from_ori(%d)", seq->link.from_ori);
-	assert(strcmp(seq->link.to, "12") == 0, "to(%s)", seq->link.to);
-	assert(seq->link.to_ori == -1, "to_ori(%d)", seq->link.to_ori);
-	assert(strcmp((char const *)seq->link.cigar, "4M") == 0, "cigar(%s)", (char const *)seq->link.cigar);
+	assert(strcmp(seq->s.link.from, "11") == 0, "from(%s)", seq->s.link.from);
+	assert(seq->s.link.from_ori == 1, "from_ori(%d)", seq->s.link.from_ori);
+	assert(strcmp(seq->s.link.to, "12") == 0, "to(%s)", seq->s.link.to);
+	assert(seq->s.link.to_ori == -1, "to_ori(%d)", seq->s.link.to_ori);
+	assert(strcmp((char const *)seq->s.link.cigar, "4M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar);
 	fna_seq_free(seq);
 
 	/* link 12 to 13 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_LINK, "type(%d)", seq->type);
-	assert(strcmp(seq->link.from, "12") == 0, "from(%s)", seq->link.from);
-	assert(seq->link.from_ori == -1, "from_ori(%d)", seq->link.from_ori);
-	assert(strcmp(seq->link.to, "13") == 0, "to(%s)", seq->link.to);
-	assert(seq->link.to_ori == 1, "to_ori(%d)", seq->link.to_ori);
-	assert(strcmp((char const *)seq->link.cigar, "5M") == 0, "cigar(%s)", (char const *)seq->link.cigar);
+	assert(strcmp(seq->s.link.from, "12") == 0, "from(%s)", seq->s.link.from);
+	assert(seq->s.link.from_ori == -1, "from_ori(%d)", seq->s.link.from_ori);
+	assert(strcmp(seq->s.link.to, "13") == 0, "to(%s)", seq->s.link.to);
+	assert(seq->s.link.to_ori == 1, "to_ori(%d)", seq->s.link.to_ori);
+	assert(strcmp((char const *)seq->s.link.cigar, "5M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar);
 	fna_seq_free(seq);
 
 	/* link 11 to 13 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_LINK, "type(%d)", seq->type);
-	assert(strcmp(seq->link.from, "11") == 0, "from(%s)", seq->link.from);
-	assert(seq->link.from_ori == 1, "from_ori(%d)", seq->link.from_ori);
-	assert(strcmp(seq->link.to, "13") == 0, "to(%s)", seq->link.to);
-	assert(seq->link.to_ori == 1, "to_ori(%d)", seq->link.to_ori);
-	assert(strcmp((char const *)seq->link.cigar, "3M") == 0, "cigar(%s)", (char const *)seq->link.cigar);
+	assert(strcmp(seq->s.link.from, "11") == 0, "from(%s)", seq->s.link.from);
+	assert(seq->s.link.from_ori == 1, "from_ori(%d)", seq->s.link.from_ori);
+	assert(strcmp(seq->s.link.to, "13") == 0, "to(%s)", seq->s.link.to);
+	assert(seq->s.link.to_ori == 1, "to_ori(%d)", seq->s.link.to_ori);
+	assert(strcmp((char const *)seq->s.link.cigar, "3M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar);
 	fna_seq_free(seq);
 
 	/* skip path line, not implemented yet */
@@ -1788,9 +1788,9 @@ unittest()
 	/* segment 15 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
-	assert(strcmp(seq->segment.name, "15") == 0, "name(%s)", seq->segment.name);
-	assert(strcmp((char const *)seq->segment.seq, "CTTGATT") == 0, "seq(%s)", (char const *)seq->segment.seq);
-	assert(seq->segment.seq_len == 7, "len(%lld)", seq->segment.seq_len);
+	assert(strcmp(seq->s.segment.name, "15") == 0, "name(%s)", seq->s.segment.name);
+	assert(strcmp((char const *)seq->s.segment.seq, "CTTGATT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
+	assert(seq->s.segment.seq_len == 7, "len(%lld)", seq->s.segment.seq_len);
 	fna_seq_free(seq);
 
 	/* term */

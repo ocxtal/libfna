@@ -138,7 +138,7 @@ struct fna_seq_s {
 	uint8_t type;
 	uint8_t seq_encode;			/** one of fna_flag_encode */
 	uint16_t options;
-	union {
+	union fna_seq_body_u {
 		struct {
 			char *name;					/** sequence name */
 			int32_t name_len;
@@ -158,7 +158,7 @@ struct fna_seq_s {
 			char *cigar;				/** contains link cigar string */
 			int64_t cigar_len;			/** contains link cigar string length (== strlen(seq)) */
 		} link;
-	};
+	} s;
 	uint16_t reserved3[4];
 };
 typedef struct fna_seq_s fna_seq_t;
