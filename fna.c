@@ -191,7 +191,7 @@ fna_t *fna_init(
 		char const *ext;
 		int32_t file_format;
 	};
-	struct _ext const ext[] = {
+	static struct _ext const ext[] = {
 		{".fasta", FNA_FASTA},
 		{".fas",   FNA_FASTA},
 		{".seq",   FNA_FASTA},
@@ -589,7 +589,7 @@ uint8_t fna_encode_2bit(
 	enum bases {
 		A = 0x00, C = 0x01, G = 0x02, T = 0x03
 	};
-	uint8_t const table[] = {
+	static uint8_t const table[] = {
 		[_b('A')] = A,
 		[_b('C')] = C,
 		[_b('G')] = G,
@@ -689,7 +689,7 @@ uint8_t fna_encode_4bit(
 	enum bases {
 		A = 0x01, C = 0x02, G = 0x04, T = 0x08
 	};
-	uint8_t const table[] = {
+	static uint8_t const table[] = {
 		[_b('A')] = A,
 		[_b('C')] = C,
 		[_b('G')] = G,
