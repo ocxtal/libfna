@@ -39,7 +39,7 @@
  *       seq.a: pointer to the sequence (null-terminated when fna->seq_encode == FNA_RAW)
  */
 
-#define UNITTEST_UNIQUE_ID			33
+#define UNITTEST_UNIQUE_ID			38
 #include "unittest.h"
 
 #include <stdint.h>
