@@ -332,7 +332,7 @@ _fna_init_error_handler:
 	if(fna != NULL) {
 		zfclose(fna->fp); fna->fp = NULL;
 		free(fna->path); fna->path = NULL;
-		return((struct fna_s *)fna);
+		free(fna);
 	}
 	return(NULL);
 }
@@ -1531,6 +1531,18 @@ unittest()
 }
 
 /**
+ * fails when failed to open file
+ */
+unittest()
+{
+	char const *fasta_filename = "test.fa";
+
+	remove(fasta_filename);
+	fna_t *fna = fna_init(fasta_filename, NULL);
+	assert(fna == NULL);
+}
+
+/**
  * basic FASTA parsing
  */
 unittest()
@@ -1856,14 +1868,10 @@ unittest()
 	char const *fail_content = "A quick brown fox jumps over the lazy dog.\n";
 	assert(fdump(fail_filename, fail_content));
 	assert(fcmp(fail_filename, strlen(fail_content), (uint8_t const *)fail_content));
+
+	/* returns NULL when failed to detect format */
 	fna_t *fna = fna_init(fail_filename, NULL);
-	assert(fna != NULL, "fna(%p)", fna);
-
-	/* format detection (internal) */
-	assert(fna->file_format == 0, "fna->file_format(%d)", fna->file_format);
-	assert(fna->status == FNA_ERROR_UNKNOWN_FORMAT, "fna->status(%d)", FNA_ERROR_UNKNOWN_FORMAT);
-
-	fna_close(fna);
+	assert(fna == NULL, "fna(%p)", fna);
 
 	/** cleanup file */
 	remove(fail_filename);
