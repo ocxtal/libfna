@@ -187,6 +187,13 @@ fna_t *fna_init(char const *path, fna_params_t const *params);
 void fna_close(fna_t *fna);
 
 /**
+ * @fn fna_set_lmm
+ *
+ * @brief replace local memory manager context
+ */
+void *fna_set_lmm(fna_t *fna, void *lmm);
+
+/**
  * @fn fna_read
  *
  * @brief read a sequence

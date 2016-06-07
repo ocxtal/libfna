@@ -250,11 +250,11 @@ fna_t *fna_init(
 	if(path == NULL) { return NULL; }
 	if(params == NULL) { params = &default_params; }
 
-	lmm_t *lmm = params->lmm;
-	if((fna = (struct fna_context_s *)lmm_malloc(lmm, sizeof(struct fna_context_s))) == NULL) {
+	/* global context is malloc'd with global malloc */
+	if((fna = (struct fna_context_s *)malloc(sizeof(struct fna_context_s))) == NULL) {
 		goto _fna_init_error_handler;
 	}
-	fna->lmm = lmm;
+	fna->lmm = params->lmm;
 	fna->path = NULL;
 	fna->fp = NULL;
 
@@ -319,7 +319,7 @@ fna_t *fna_init(
 	#endif
 	fna->read = read[fna->file_format];
 	fna->read_seq = read_seq[fna->seq_encode];
-	fna->path = lmm_strdup(lmm, path);
+	fna->path = strdup(path);
 
 	/* parse header */
 	if(read_head[fna->file_format](fna) != FNA_SUCCESS) {
@@ -331,7 +331,7 @@ fna_t *fna_init(
 _fna_init_error_handler:
 	if(fna != NULL) {
 		zfclose(fna->fp); fna->fp = NULL;
-		lmm_free(fna->lmm, fna->path); fna->path = NULL;
+		free(fna->path); fna->path = NULL;
 		return((struct fna_s *)fna);
 	}
 	return(NULL);
@@ -348,10 +348,24 @@ void fna_close(fna_t *ctx)
 
 	if(fna != NULL) {
 		zfclose(fna->fp); fna->fp = NULL;
-		lmm_free(fna->lmm, fna->path); fna->path = NULL;
-		lmm_free(fna->lmm, fna); fna = NULL;
+		free(fna->path); fna->path = NULL;
+		free(fna); fna = NULL;
 	}
 	return;
+}
+
+/**
+ * @fn fna_set_lmm
+ */
+void *fna_set_lmm(
+	fna_t *ctx,
+	void *new)
+{
+	struct fna_context_s *fna = (struct fna_context_s *)ctx;
+
+	lmm_t *old = fna->lmm;
+	fna->lmm = (lmm_t *)new;
+	return((void *)old);
 }
 
 /**
