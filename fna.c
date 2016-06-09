@@ -1503,7 +1503,10 @@ int fcmp(char const *filename, int64_t size, uint8_t const *arr)
 	if((fp = fopen(filename, "rb")) == NULL) { return(1); }
 	fstat(fileno(fp), &st);
 	buf = malloc(sizeof(uint8_t) * st.st_size);
-	fread(buf, st.st_size, sizeof(uint8_t), fp);
+
+	if(fread(buf, sizeof(uint8_t), st.st_size, fp) != st.st_size) {
+		return(0);
+	}
 	res = memcmp(buf, arr, size);
 	free(buf);
 	fclose(fp);
