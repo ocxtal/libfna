@@ -737,7 +737,7 @@ struct fna_read_ret_s fna_read_seq_4bit(
 	lmm_kvec_uint8_t *v,
 	uint8_t const *delim_table)
 {
-	int c;
+	int c = 0;
 	int64_t len = 0;
 	while(1) {
 		c = zfgetc(fna->fp);
@@ -764,7 +764,7 @@ struct fna_read_ret_s fna_read_seq_4bitpacked(
 	lmm_kvec_uint8_t *v,
 	uint8_t const *delim_table)
 {
-	int c;
+	int c = 0;
 	int64_t len = 0;
 	uint64_t rem = 8;
 	uint8_t arr = 0;
