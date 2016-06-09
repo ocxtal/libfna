@@ -1513,6 +1513,35 @@ int fcmp(char const *filename, int64_t size, uint8_t const *arr)
 	return(res == 0);
 }
 
+/**
+ * @fn unittest_random_base
+ */
+static _force_inline
+char unittest_random_base(void)
+{
+	char const table[4] = {'A', 'C', 'G', 'T'};
+	return(table[rand() % 4]);
+}
+
+/**
+ * @fn unittest_generate_random_sequence
+ */
+static _force_inline
+char *unittest_generate_random_sequence(
+	int64_t len)
+{
+	char *seq;		/** a pointer to sequence */
+	seq = (char *)malloc(sizeof(char) * (len + 1));
+
+	if(seq == NULL) { return NULL; }
+	for(int64_t i = 0; i < len; i++) {
+		seq[i] = unittest_random_base();
+	}
+	seq[len] = '\0';
+	return seq;
+}
+
+
 /* unittest for parse_version_string */
 unittest()
 {
@@ -1961,6 +1990,49 @@ unittest()
 	/** cleanup file */
 	remove(gfa_filename);
 	return;
+}
+
+/* large sequence */
+unittest()
+{
+	char const *filename = "test.fa";
+
+	/* dump */
+	zf_t *fp = zfopen(filename, "w");
+	for(int64_t i = 0; i < 100; i++) {
+		char *seq = unittest_generate_random_sequence(100000);
+		char *base = seq;
+
+		zfprintf(fp, "> seq%lld\n", i);
+		while(*seq != '\0') {
+			for(int64_t j = 0; j < 80; j++) {
+				zfputc(fp, *seq++);
+				if(*seq == '\0') { break; }
+			}
+			zfputc(fp, '\n');
+		}
+
+		free(base);
+	}
+	zfclose(fp);
+
+	/* read */
+	fna_t *fna = fna_init(filename, NULL);
+	fna_seq_t *seq = NULL;
+
+	int64_t i = 0;
+	while((seq = fna_read(fna)) != NULL) {
+		char buf[1024];
+		sprintf(buf, "seq%lld", i++);
+
+		assert(strcmp(seq->s.segment.name, buf) == 0, "name(%s, %s)", seq->s.segment.name, buf);
+		assert(seq->s.segment.seq_len == 100000, "len(%lld)", seq->s.segment.seq_len);
+
+		fna_seq_free(seq);
+	}
+
+	fna_close(fna);
+	remove(filename);
 }
 
 #if 0
