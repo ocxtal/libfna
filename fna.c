@@ -306,7 +306,6 @@ fna_t *fna_init(
 		}
 	}
 	if(fna->file_format == 0) {
-		// log_error("Couldn't determine file format `%s'.\n", path);
 		fna->status = FNA_ERROR_UNKNOWN_FORMAT;
 		goto _fna_init_error_handler;
 	}
@@ -462,6 +461,7 @@ void fna_seq_make_margin(
 	for(int64_t i = 0; i < len; i++) {
 		lmm_kv_at(*v, base + i) = 0;
 	}
+	lmm_kv_size(*v) = base + len;
 	return;
 }
 
@@ -857,7 +857,7 @@ struct fna_seq_intl_s *fna_read_fasta(
 		lmm_kv_ptr(v) + fna->head_margin);
 	char *name = (char *)(r + 1);
 	uint8_t *seq = (uint8_t *)(name + (name_len + 1) + r->seq_head_margin);
-	uint8_t *qual = (uint8_t *)(seq + seq_len + 1);
+	uint8_t *qual = (uint8_t *)(seq + (seq_len + 1) + r->seq_tail_margin);
 	int64_t qual_len = 0;
 
 	return(_fna_pack_segment(r,
@@ -936,7 +936,7 @@ struct fna_seq_intl_s *fna_read_fastq(
 		lmm_kv_ptr(v) + fna->head_margin);
 	char *name = (char *)(r + 1);
 	uint8_t *seq = (uint8_t *)(name + (name_len + 1) + r->seq_head_margin);
-	uint8_t *qual = (uint8_t *)(seq + seq_len + 1);
+	uint8_t *qual = (uint8_t *)(seq + (seq_len + 1) + r->seq_tail_margin);
 
 	return(_fna_pack_segment(r,
 		name, name_len,
@@ -1058,7 +1058,7 @@ struct fna_seq_intl_s *fna_read_gfa_seq(
 		lmm_kv_ptr(v) + fna->head_margin);
 	char *name = (char *)(r + 1);
 	uint8_t *seq = (uint8_t *)(name + (name_len + 1) + r->seq_head_margin);
-	uint8_t *qual = (uint8_t *)(seq + seq_len + 1);
+	uint8_t *qual = (uint8_t *)(seq + (seq_len + 1) + r->seq_tail_margin);
 	int64_t qual_len = 0;
 
 	return(_fna_pack_segment(r,
@@ -1099,7 +1099,7 @@ struct fna_seq_intl_s *fna_read_gfa_link(
 	}
 
 	/* direction */
-	int64_t from_ori = (zfgetc(fna->fp) == '+') ? 1 : -1;
+	int64_t from_ori = (zfgetc(fna->fp) == '+') ? 0 : 1;
 	if(zfgetc(fna->fp) != '\t') {
 		fna->status = FNA_ERROR_BROKEN_FORMAT;
 		return(NULL);
@@ -1113,7 +1113,7 @@ struct fna_seq_intl_s *fna_read_gfa_link(
 	}
 
 	/* direction */
-	int64_t to_ori = (zfgetc(fna->fp) == '+') ? 1 : -1;
+	int64_t to_ori = (zfgetc(fna->fp) == '+') ? 0 : 1;
 	if(zfgetc(fna->fp) != '\t') {
 		fna->status = FNA_ERROR_BROKEN_FORMAT;
 		return(NULL);
@@ -1843,9 +1843,9 @@ unittest()
 	seq = fna_read(fna);
 	assert(seq->type == FNA_LINK, "type(%d)", seq->type);
 	assert(strcmp(seq->s.link.from, "11") == 0, "from(%s)", seq->s.link.from);
-	assert(seq->s.link.from_ori == 1, "from_ori(%d)", seq->s.link.from_ori);
+	assert(seq->s.link.from_ori == 0, "from_ori(%d)", seq->s.link.from_ori);
 	assert(strcmp(seq->s.link.to, "12") == 0, "to(%s)", seq->s.link.to);
-	assert(seq->s.link.to_ori == -1, "to_ori(%d)", seq->s.link.to_ori);
+	assert(seq->s.link.to_ori == 1, "to_ori(%d)", seq->s.link.to_ori);
 	assert(strcmp((char const *)seq->s.link.cigar, "4M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar);
 	fna_seq_free(seq);
 
@@ -1853,9 +1853,9 @@ unittest()
 	seq = fna_read(fna);
 	assert(seq->type == FNA_LINK, "type(%d)", seq->type);
 	assert(strcmp(seq->s.link.from, "12") == 0, "from(%s)", seq->s.link.from);
-	assert(seq->s.link.from_ori == -1, "from_ori(%d)", seq->s.link.from_ori);
+	assert(seq->s.link.from_ori == 1, "from_ori(%d)", seq->s.link.from_ori);
 	assert(strcmp(seq->s.link.to, "13") == 0, "to(%s)", seq->s.link.to);
-	assert(seq->s.link.to_ori == 1, "to_ori(%d)", seq->s.link.to_ori);
+	assert(seq->s.link.to_ori == 0, "to_ori(%d)", seq->s.link.to_ori);
 	assert(strcmp((char const *)seq->s.link.cigar, "5M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar);
 	fna_seq_free(seq);
 
@@ -1863,9 +1863,9 @@ unittest()
 	seq = fna_read(fna);
 	assert(seq->type == FNA_LINK, "type(%d)", seq->type);
 	assert(strcmp(seq->s.link.from, "11") == 0, "from(%s)", seq->s.link.from);
-	assert(seq->s.link.from_ori == 1, "from_ori(%d)", seq->s.link.from_ori);
+	assert(seq->s.link.from_ori == 0, "from_ori(%d)", seq->s.link.from_ori);
 	assert(strcmp(seq->s.link.to, "13") == 0, "to(%s)", seq->s.link.to);
-	assert(seq->s.link.to_ori == 1, "to_ori(%d)", seq->s.link.to_ori);
+	assert(seq->s.link.to_ori == 0, "to_ori(%d)", seq->s.link.to_ori);
 	assert(strcmp((char const *)seq->s.link.cigar, "3M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar);
 	fna_seq_free(seq);
 
@@ -2023,7 +2023,7 @@ unittest()
 	int64_t i = 0;
 	while((seq = fna_read(fna)) != NULL) {
 		char buf[1024];
-		sprintf(buf, "seq%lld", i++);
+		sprintf(buf, "seq%" PRId64 "", i++);
 
 		assert(strcmp(seq->s.segment.name, buf) == 0, "name(%s, %s)", seq->s.segment.name, buf);
 		assert(seq->s.segment.seq_len == 100000, "len(%lld)", seq->s.segment.seq_len);
