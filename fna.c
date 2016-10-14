@@ -90,7 +90,7 @@ struct fna_context_s {
 	struct fna_seq_intl_s *(*read)(struct fna_context_s *fna);
 
 	/* output sequence format specific parser */
-	struct fna_read_ret_s (*read_seq)(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
+	struct fna_read_ret_s (*read_seq)(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table, int64_t lim);
 };
 _static_assert_offset(struct fna_s, path, struct fna_context_s, path, 0);
 _static_assert_offset(struct fna_s, file_format, struct fna_context_s, file_format, 0);
@@ -108,25 +108,8 @@ struct fna_seq_intl_s {
 	uint8_t seq_encode;			/** one of _fna_flag_encode */
 	uint16_t options;
 	union fna_seq_body_intl_u {
-		struct {
-			char *name;					/** sequence name */
-			int32_t name_len;
-			int32_t reserved;
-			uint8_t *seq;				/** sequence */
-			int64_t seq_len;			/** sequence length */
-			uint8_t *qual;
-			int64_t qual_len;
-		} segment;
-		struct {
-			char *from;
-			int32_t from_len;
-			int32_t from_ori;
-			char *to;
-			int32_t to_len;
-			int32_t to_ori;
-			char *cigar;				/** contains link cigar string */
-			int64_t cigar_len;			/** contains link cigar string length (== strlen(seq)) */
-		} link;
+		struct fna_segment_s segment;
+		struct fna_link_s link;
 	} s;
 	uint16_t head_margin;	/** margin at the head of fna_seq_t */
 	uint16_t tail_margin;
@@ -137,22 +120,10 @@ _static_assert_offset(struct fna_seq_s, type, struct fna_seq_intl_s, type, 0);
 _static_assert_offset(struct fna_seq_s, seq_encode, struct fna_seq_intl_s, seq_encode, 0);
 _static_assert_offset(struct fna_seq_s, options, struct fna_seq_intl_s, options, 0);
 
-/* segment members */
-_static_assert_offset(struct fna_seq_s, s.segment.name, struct fna_seq_intl_s, s.segment.name, 0);
-_static_assert_offset(struct fna_seq_s, s.segment.name_len, struct fna_seq_intl_s, s.segment.name_len, 0);
-_static_assert_offset(struct fna_seq_s, s.segment.seq, struct fna_seq_intl_s, s.segment.seq, 0);
-_static_assert_offset(struct fna_seq_s, s.segment.seq_len, struct fna_seq_intl_s, s.segment.seq_len, 0);
-_static_assert_offset(struct fna_seq_s, s.segment.qual, struct fna_seq_intl_s, s.segment.qual, 0);
-_static_assert_offset(struct fna_seq_s, s.segment.qual_len, struct fna_seq_intl_s, s.segment.qual_len, 0);
-
-/* link members */
-_static_assert_offset(struct fna_seq_s, s.link.from, struct fna_seq_intl_s, s.link.from, 0);
-_static_assert_offset(struct fna_seq_s, s.link.from_len, struct fna_seq_intl_s, s.link.from_len, 0);
-_static_assert_offset(struct fna_seq_s, s.link.to, struct fna_seq_intl_s, s.link.to, 0);
-_static_assert_offset(struct fna_seq_s, s.link.to_len, struct fna_seq_intl_s, s.link.to_len, 0);
-_static_assert_offset(struct fna_seq_s, s.link.cigar, struct fna_seq_intl_s, s.link.cigar, 0);
-_static_assert_offset(struct fna_seq_s, s.link.cigar_len, struct fna_seq_intl_s, s.link.cigar_len, 0);
-
+/* segment and link objects */
+_static_assert(sizeof(struct fna_segment_s) == 64);
+_static_assert(sizeof(struct fna_link_s) == 64);
+_static_assert_offset(struct fna_seq_s, s, struct fna_seq_intl_s, s, 0);
 
 /* function delcarations */
 static int fna_read_head_fasta(struct fna_context_s *fna);
@@ -165,11 +136,11 @@ static struct fna_seq_intl_s *fna_read_fastq(struct fna_context_s *fna);
 static struct fna_seq_intl_s *fna_read_fast5(struct fna_context_s *fna);
 static struct fna_seq_intl_s *fna_read_gfa(struct fna_context_s *fna);
 
-static struct fna_read_ret_s fna_read_seq_ascii(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
-static struct fna_read_ret_s fna_read_seq_2bit(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
-static struct fna_read_ret_s fna_read_seq_2bitpacked(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
-static struct fna_read_ret_s fna_read_seq_4bit(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
-static struct fna_read_ret_s fna_read_seq_4bitpacked(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table);
+static struct fna_read_ret_s fna_read_seq_ascii(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table, int64_t lim);
+static struct fna_read_ret_s fna_read_seq_2bit(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table, int64_t lim);
+static struct fna_read_ret_s fna_read_seq_2bitpacked(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table, int64_t lim);
+static struct fna_read_ret_s fna_read_seq_4bit(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table, int64_t lim);
+static struct fna_read_ret_s fna_read_seq_4bitpacked(struct fna_context_s *fna, lmm_kvec_uint8_t *v, uint8_t const *delim_table, int64_t lim);
 
 /**
  * @fn fna_init
@@ -227,7 +198,8 @@ fna_t *fna_init(
 	struct fna_read_ret_s (*read_seq[])(
 		struct fna_context_s *fna,
 		lmm_kvec_uint8_t *v,
-		uint8_t const *delim_table) = {
+		uint8_t const *delim_table,
+		int64_t lim) = {
 		[FNA_ASCII] = fna_read_seq_ascii,
 		[FNA_2BIT] = fna_read_seq_2bit,
 		[FNA_2BITPACKED] = fna_read_seq_2bitpacked,
@@ -279,8 +251,13 @@ fna_t *fna_init(
 	 * 1. determine file format from the path extension
 	 */
 	if(fna->file_format == 0) {
-		char const *path_tail = fna->fp->path + strlen(fna->fp->path);
+		uint64_t path_len = strlen(fna->fp->path);
+		char const *path_tail = fna->fp->path + path_len;
 		for(ep = ext; ep->ext != NULL; ep++) {
+			/* skip if path string is shorter than extension string */
+			if(path_len < strlen(ep->ext)) { continue; }
+
+			/* compare ext */
 			if(strncmp(path_tail - strlen(ep->ext), ep->ext, strlen(ep->ext)) == 0) {
 				fna->file_format = ep->file_format; break;
 			}
@@ -294,7 +271,7 @@ fna_t *fna_init(
 		/* peek the head of the file */
 		char buf[33] = { 0 };
 		uint64_t len = zfpeek(fna->fp, buf, 32);
-		for(int64_t i = 0; i < len; i++) {
+		for(uint64_t i = 0; i < len; i++) {
 			switch(buf[i]) {
 				case '>': fna->file_format = FNA_FASTA; break;
 				case '@': fna->file_format = FNA_FASTQ; break;
@@ -374,9 +351,11 @@ void *fna_set_lmm(
 /**
  * @macro _fna_pack_segment
  */
-#define _fna_pack_segment(_seg, _name, _name_len, _seq, _seq_len, _qual, _qual_len) ({ \
+#define _fna_pack_segment(_seg, _name, _name_len, _com, _com_len, _seq, _seq_len, _qual, _qual_len) ({ \
 	(_seg)->s.segment.name = (_name); \
 	(_seg)->s.segment.name_len = (_name_len); \
+	(_seg)->s.segment.comment = (_com); \
+	(_seg)->s.segment.comment_len = (_com_len); \
 	(_seg)->s.segment.seq = (_seq); \
 	(_seg)->s.segment.seq_len = (_seq_len); \
 	(_seg)->s.segment.qual = (_qual); \
@@ -400,50 +379,65 @@ void *fna_set_lmm(
 })
 
 /**
- * @val ascii_table, alpha_table, space_table
+ * @val ascii_table, alpha_table, delim_space
  */
+#define LIM_UNLIMITED		( INT64_MAX )
+#define DELIM_TERM			( 1 )
+
 /* non-printable, first 32 elements of the ASCII table */
 #define _non_printable(n) \
 	(n),(n),(n),(n), (n),(n),(n),(n), (n),(n),(n),(n), (n),(n),(n),(n), \
 	(n),(n),(n),(n), (n),(n),(n),(n), (n),(n),(n),(n), (n),(n),(n),(n)
 
 static
-uint8_t const space_table[256] = {
-	['\0'] = 1,
-	[' '] = 1,
-	['\t'] = 1,
-	['\v'] = 1,
+uint8_t const delim_space[256] = {
+	['\0'] = DELIM_TERM,
+	[' '] = DELIM_TERM,
+	['\t'] = DELIM_TERM,
+	['\v'] = DELIM_TERM,
 	[0xff] = 0xff
 };
 static
 uint8_t const delim_line[256] = {
-	['\r'] = 1,
-	['\n'] = 1,
+	['\r'] = DELIM_TERM,
+	['\n'] = DELIM_TERM,
+	[0xff] = 0xff
+};
+static
+uint8_t const delim_fasta_fastq_name[256] = {
+	[' '] = DELIM_TERM,
+	['\r'] = DELIM_TERM,
+	['\n'] = DELIM_TERM,
 	[0xff] = 0xff
 };
 static
 uint8_t const delim_fasta_seq[256] = {
 	_non_printable(2),
-	['>'] = 1,
+	['>'] = DELIM_TERM,
 	[0xff] = 0xff
 };
 static
 uint8_t const delim_fastq_seq[256] = {
 	_non_printable(2),
-	['@'] = 1,
+	['+'] = DELIM_TERM,
 	[0xff] = 0xff
 };
 static
 uint8_t const delim_fastq_qual[256] = {
 	_non_printable(2),
-	['+'] = 1,
+	[0xff] = 0xff
+};
+static
+uint8_t const delim_fastq_tail[256] = {
+	_non_printable(2),
+	['@'] = DELIM_TERM,
 	[0xff] = 0xff
 };
 static
 uint8_t const delim_gfa_field[256] = {
-	['\t'] = 1,
-	['\r'] = 1,
-	['\n'] = 1,
+	['\t'] = DELIM_TERM,
+	['\r'] = DELIM_TERM,
+	['\n'] = DELIM_TERM,
 	[0xff] = 0xff
 };
 
@@ -493,7 +487,7 @@ uint64_t fna_parse_version_string(
 
 /**
  * @fn fna_read_ascii
- * @brief read ascii until delim
+ * @brief read ascii until delim, push '\0' terminator
  */
 static _force_inline
 struct fna_read_ret_s fna_read_ascii(
@@ -505,7 +499,7 @@ struct fna_read_ret_s fna_read_ascii(
 	int c;
 
 	/* strip spaces at the head */
-	while(space_table[(uint8_t)(c = zfgetc(fna->fp))] == 1) {
+	while(delim_space[(uint8_t)(c = zfgetc(fna->fp))] == 1) {
 		debug("%c, %d", c, c);
 	}
 	if(c == EOF) {
@@ -527,7 +521,7 @@ struct fna_read_ret_s fna_read_ascii(
 	char cret = (char)c;
 
 	/* strip spaces at the tail */
-	while(len-- > 0 && space_table[(uint8_t)(c = lmm_kv_pop(fna->lmm, *v))] == 1) {
+	while(len-- > 0 && delim_space[(uint8_t)(c = lmm_kv_pop(fna->lmm, *v))] == 1) {
 		debug("%c, %d", c, c);
 	}
 	lmm_kv_push(fna->lmm, *v, c); len++;	/* push back last non-space char */
@@ -546,14 +540,18 @@ struct fna_read_ret_s fna_read_ascii(
 static _force_inline
 struct fna_read_ret_s fna_read_skip(
 	struct fna_context_s *fna,
-	uint8_t const *delim_table)
+	uint8_t const *delim_table,
+	int64_t lim)
 {
+	uint8_t type;
 	int c;
-	while((delim_table[(uint8_t)(c = zfgetc(fna->fp))] & 0x01) == 0) {
-		debug("%c, %d, %u", c, c, delim_table[(uint8_t)c]);
+	int64_t len = 0;
+	while(((type = delim_table[(uint8_t)(c = zfgetc(fna->fp))]) & DELIM_TERM) == 0) {
+		debug("%c, %d, %u, %lld, %lld", c, c, delim_table[(uint8_t)c], len, lim);
+		if(type == 0 && ++len >= lim) { break; }
 	}
 	return((struct fna_read_ret_s){
-		.len = 0,
+		.len = len,
 		.c = (char)c
 	});
 }
@@ -566,14 +564,14 @@ static
 struct fna_read_ret_s fna_read_seq_ascii(
 	struct fna_context_s *fna,
 	lmm_kvec_uint8_t *v,
-	uint8_t const *delim_table)
+	uint8_t const *delim_table,
+	int64_t lim)
 {
-	int c;
+	int c = 0;
 	int64_t len = 0;
-	while(1) {
-		c = zfgetc(fna->fp);
-		uint8_t type = delim_table[(uint8_t)c];
-		if(type & 0x01) { break; }
+	while(len < lim) {
+		uint8_t type = delim_table[(uint8_t)(c = zfgetc(fna->fp))];
+		if(type & DELIM_TERM) { break; }
 		if(type != 0) { continue; }
 		debug("%c, %d", c, c);
 		lmm_kv_push(fna->lmm, *v, (uint8_t)c); len++;
@@ -625,14 +623,15 @@ static
 struct fna_read_ret_s fna_read_seq_2bit(
 	struct fna_context_s *fna,
 	lmm_kvec_uint8_t *v,
-	uint8_t const *delim_table)
+	uint8_t const *delim_table,
+	int64_t lim)
 {
 	int c = 0;
 	int64_t len = 0;
-	while(1) {
+	while(len < lim) {
 		c = zfgetc(fna->fp);
 		uint8_t type = delim_table[(uint8_t)c];
-		if(type & 0x01) { break; }
+		if(type & DELIM_TERM) { break; }
 		if(type != 0) { continue; }
 		lmm_kv_push(fna->lmm, *v, fna_encode_2bit(c)); len++;
 	}
@@ -652,7 +651,8 @@ static
 struct fna_read_ret_s fna_read_seq_2bitpacked(
 	struct fna_context_s *fna,
 	lmm_kvec_uint8_t *v,
-	uint8_t const *delim_table)
+	uint8_t const *delim_table,
+	int64_t lim)
 {
 	int c = 0;
 	int64_t len = 0;
@@ -664,19 +664,24 @@ struct fna_read_ret_s fna_read_seq_2bitpacked(
 			int _c; \
 			uint8_t _type; \
 			while((_type = delim_table[(uint8_t)(_c = zfgetc(_fna->fp))]) != 0) { \
-				if(_type & 0x01) { goto _fna_read_seq_2bitpacked_finish; } \
+				if(_type & DELIM_TERM) { goto _fna_read_seq_2bitpacked_finish; } \
 			} \
 			_c; \
 		}) \
 
+		#define _check(l) { \
+			if((l)-- <= 0) { goto _fna_read_seq_2bitpacked_finish; } \
+		}
+
 		rem = 8;
-		arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6); rem -= 2;
-		arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6); rem -= 2;
-		arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6); rem -= 2;
-		arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6);
+		_check(lim); arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6); rem -= 2;
+		_check(lim); arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6); rem -= 2;
+		_check(lim); arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6); rem -= 2;
+		_check(lim); arr = (arr>>2) | (fna_encode_2bit(c = _fetch(fna))<<6);
 		lmm_kv_push(fna->lmm, *v, arr); len += 4;
 
 		#undef _fetch
+		#undef _check
 	}
 _fna_read_seq_2bitpacked_finish:;
 	lmm_kv_push(fna->lmm, *v, arr>>rem); len += (8 - rem) / 2;
@@ -735,14 +740,15 @@ static
 struct fna_read_ret_s fna_read_seq_4bit(
 	struct fna_context_s *fna,
 	lmm_kvec_uint8_t *v,
-	uint8_t const *delim_table)
+	uint8_t const *delim_table,
+	int64_t lim)
 {
 	int c = 0;
 	int64_t len = 0;
-	while(1) {
+	while(len < lim) {
 		c = zfgetc(fna->fp);
 		uint8_t type = delim_table[(uint8_t)c];
-		if(type & 0x01) { break; }
+		if(type & DELIM_TERM) { break; }
 		if(type != 0) { continue; }
 		lmm_kv_push(fna->lmm, *v, fna_encode_4bit(c)); len++;
 	}
@@ -762,7 +768,8 @@ static
 struct fna_read_ret_s fna_read_seq_4bitpacked(
 	struct fna_context_s *fna,
 	lmm_kvec_uint8_t *v,
-	uint8_t const *delim_table)
+	uint8_t const *delim_table,
+	int64_t lim)
 {
 	int c = 0;
 	int64_t len = 0;
@@ -774,17 +781,22 @@ struct fna_read_ret_s fna_read_seq_4bitpacked(
 			int _c; \
 			uint8_t _type; \
 			while((_type = delim_table[(uint8_t)(_c = zfgetc(_fna->fp))]) != 0) { \
-				if(_type & 0x01) { goto _fna_read_seq_4bitpacked_finish; } \
+				if(lim-- <= 0 && _type & DELIM_TERM) { goto _fna_read_seq_4bitpacked_finish; } \
 			} \
 			_c; \
 		}) \
 
+		#define _check(l) { \
+			if((l)-- <= 0) { goto _fna_read_seq_4bitpacked_finish; } \
+		}
+
 		rem = 8;
-		arr = (arr>>2) | (fna_encode_4bit(c = _fetch(fna))<<4); rem -= 4;
-		arr = (arr>>2) | (fna_encode_4bit(c = _fetch(fna))<<4);
+		_check(lim); arr = (arr>>2) | (fna_encode_4bit(c = _fetch(fna))<<4); rem -= 4;
+		_check(lim); arr = (arr>>2) | (fna_encode_4bit(c = _fetch(fna))<<4);
 		lmm_kv_push(fna->lmm, *v, arr); len += 2;
 
 		#undef _fetch
+		#undef _check
 	}
 _fna_read_seq_4bitpacked_finish:;
 	lmm_kv_push(fna->lmm, *v, arr>>rem); len += (8 - rem) / 4;
@@ -804,7 +816,7 @@ int fna_read_head_fasta(
 	struct fna_context_s *fna)
 {
 	/* eat '>' at the head */
-	fna_read_skip(fna, delim_fasta_seq);
+	fna_read_skip(fna, delim_fasta_seq, LIM_UNLIMITED);
 	return(zfeof(fna->fp) ? FNA_EOF :  FNA_SUCCESS);
 }
 
@@ -835,26 +847,56 @@ struct fna_seq_intl_s *fna_read_fasta(
 	}));
 
 	/* parse name */
-	int64_t name_len = fna_read_ascii(fna, &v, delim_line).len;	/* fasta header line must ends with '\n' */
+	struct fna_read_ret_s n;
+	int64_t name_len = (n = fna_read_ascii(fna, &v, delim_fasta_fastq_name)).len;
+
+	/* parse comment after name */
+	int64_t com_len = (n.c == ' ')
+		? fna_read_ascii(fna, &v, delim_line).len
+		: ({ lmm_kv_push(fna->lmm, v, '\0'); 0; });
 
 	/* parse seq */
 	fna_seq_make_margin(fna, &v, fna->seq_head_margin);
-	int64_t seq_len = (fna->read_seq(fna, &v, delim_fasta_seq)).len;
+	int64_t seq_len = (fna->read_seq(fna, &v, delim_fasta_seq, LIM_UNLIMITED)).len;
+
+	debug("name_len(%lld), com_len(%lld), seq_len(%lld)", name_len, com_len, seq_len);
 
 	/* check termination */
-	if(name_len == 0 && seq_len == 0) {
+	if(name_len == 0 && com_len == 0 && seq_len == 0) {
 		lmm_kv_destroy(fna->lmm, v);
 		return(NULL);
 	}
 
 	/* make margin at the tail */
 	fna_seq_make_margin(fna, &v, fna->seq_tail_margin);
-	lmm_kv_push(fna->lmm, v, '\0');
+	lmm_kv_push(fna->lmm, v, '\0');			/* qual string terminator */
 	fna_seq_make_margin(fna, &v, fna->tail_margin);
 
 	/* finished, build links */
 	struct fna_seq_intl_s *r = (struct fna_seq_intl_s *)(
 		lmm_kv_ptr(v) + fna->head_margin);
+
+	#define _next(x)		( (x).ptr + (x).len + 1 )
+	r->s.segment.name = (struct fna_str_s){
+		.ptr = (char const *)(r + 1),
+		.len = name_len
+	};
+	r->s.segment.comment = (struct fna_str_s){
+		.ptr = (char const *)_next(r->s.segment.name),
+		.len = com_len
+	};
+	r->s.segment.seq = (struct fna_sarr_s){
+		.ptr = (uint8_t const *)(_next(r->s.segment.comment) + r->seq_head_margin),
+		.len = seq_len
+	};
+	r->s.segment.qual = (struct fna_sarr_s){
+		.ptr = (uint8_t const *)(_next(r->s.segment.seq) + r->seq_tail_margin),
+		.len = 0
+	};
+	#undef _next
+	return(r);
+
+	#if 0
 	char *name = (char *)(r + 1);
 	uint8_t *seq = (uint8_t *)(name + (name_len + 1) + r->seq_head_margin);
 	uint8_t *qual = (uint8_t *)(seq + (seq_len + 1) + r->seq_tail_margin);
@@ -864,6 +906,7 @@ struct fna_seq_intl_s *fna_read_fasta(
 		name, name_len,
 		seq, seq_len,
 		qual, qual_len));
+	#endif
 }
 
 /**
@@ -874,7 +917,7 @@ int fna_read_head_fastq(
 	struct fna_context_s *fna)
 {
 	/* eat '@' at the head */
-	fna_read_skip(fna, delim_fastq_seq);
+	fna_read_skip(fna, delim_fastq_tail, LIM_UNLIMITED);
 	return(zfeof(fna->fp) ? FNA_EOF :  FNA_SUCCESS);
 }
 
@@ -904,25 +947,38 @@ struct fna_seq_intl_s *fna_read_fastq(
 		.seq_tail_margin = fna->seq_tail_margin
 	}));
 
+	#if 0
 	/* parse name */
 	int64_t name_len = fna_read_ascii(fna, &v, delim_line).len;
+	#endif
+
+	/* parse name */
+	struct fna_read_ret_s n;
+	int64_t name_len = (n = fna_read_ascii(fna, &v, delim_fasta_fastq_name)).len;
+
+	/* parse comment after name */
+	int64_t com_len = (n.c == ' ')
+		? fna_read_ascii(fna, &v, delim_line).len
+		: ({ lmm_kv_push(fna->lmm, v, '\0'); 0; });
 
 	/* parse seq */
 	fna_seq_make_margin(fna, &v, fna->seq_head_margin);
-	int64_t seq_len = (fna->read_seq(fna, &v, delim_fastq_qual)).len;
+	int64_t seq_len = (fna->read_seq(fna, &v, delim_fastq_seq, LIM_UNLIMITED)).len;
 	fna_seq_make_margin(fna, &v, fna->seq_tail_margin);
 
 	/* skip name */
-	fna_read_skip(fna, delim_line);
+	fna_read_skip(fna, delim_line, LIM_UNLIMITED);
 
 	/* parse qual */
 	int64_t qual_len = (((fna->options & FNA_SKIP_QUAL) == 0)
-		? fna->read_seq(fna, &v, delim_fastq_seq)
-		: fna_read_skip(fna, delim_fastq_seq)).len;
-	lmm_kv_push(fna->lmm, v, '\0');			/* push null terminator */
+		? fna->read_seq(fna, &v, delim_fastq_qual, seq_len)
+		: fna_read_skip(fna, delim_fastq_qual, seq_len)).len;
+	fna_read_skip(fna, delim_fastq_tail, LIM_UNLIMITED);	/* strip tail */
+	lmm_kv_push(fna->lmm, v, '\0');							/* push null terminator */
 
 	/* check termination */
-	if(name_len == 0 && seq_len == 0) {
+	debug("seq_len(%lld), qual_len(%lld), name_len(%lld)", seq_len, qual_len, name_len);
+	if(seq_len != qual_len || (name_len == 0 && seq_len == 0)) {
 		lmm_kv_destroy(fna->lmm, v);
 		return(NULL);
 	}
@@ -930,10 +986,31 @@ struct fna_seq_intl_s *fna_read_fastq(
 	/* make margin at the tail */
 	fna_seq_make_margin(fna, &v, fna->tail_margin);
 
-
 	/* finished, build links */
 	struct fna_seq_intl_s *r = (struct fna_seq_intl_s *)(
 		lmm_kv_ptr(v) + fna->head_margin);
+
+	#define _next(x)		( (x).ptr + (x).len + 1 )
+	r->s.segment.name = (struct fna_str_s){
+		.ptr = (char const *)(r + 1),
+		.len = name_len
+	};
+	r->s.segment.comment = (struct fna_str_s){
+		.ptr = (char const *)_next(r->s.segment.name),
+		.len = com_len
+	};
+	r->s.segment.seq = (struct fna_sarr_s){
+		.ptr = (uint8_t const *)(_next(r->s.segment.comment) + r->seq_head_margin),
+		.len = seq_len
+	};
+	r->s.segment.qual = (struct fna_sarr_s){
+		.ptr = (uint8_t const *)(_next(r->s.segment.seq) + r->seq_tail_margin),
+		.len = ((fna->options & FNA_SKIP_QUAL) == 0) ? qual_len : 0
+	};
+	#undef _next
+	return(r);
+
+	#if 0
 	char *name = (char *)(r + 1);
 	uint8_t *seq = (uint8_t *)(name + (name_len + 1) + r->seq_head_margin);
 	uint8_t *qual = (uint8_t *)(seq + (seq_len + 1) + r->seq_tail_margin);
@@ -942,6 +1019,7 @@ struct fna_seq_intl_s *fna_read_fastq(
 		name, name_len,
 		seq, seq_len,
 		qual, qual_len));
+	#endif
 }
 
 /**
@@ -1031,15 +1109,18 @@ struct fna_seq_intl_s *fna_read_gfa_seq(
 	/* parse name */
 	int64_t name_len = fna_read_ascii(fna, &v, delim_gfa_field).len;
 
+	/* comment is always blank */
+	lmm_kv_push(fna->lmm, v, '\0');
+
 	/* parse seq */
 	fna_seq_make_margin(fna, &v, fna->seq_head_margin);
-	struct fna_read_ret_s ret = fna->read_seq(fna, &v, delim_gfa_field);
+	struct fna_read_ret_s ret = fna->read_seq(fna, &v, delim_gfa_field, LIM_UNLIMITED);
 	int64_t seq_len = ret.len;
 
 	/* check if optional field remains */
 	if(ret.c == '\t') {
 		/* skip optional fields */
-		fna_read_skip(fna, delim_line);
+		fna_read_skip(fna, delim_line, LIM_UNLIMITED);
 	}
 
 	/* check termination */
@@ -1056,6 +1137,29 @@ struct fna_seq_intl_s *fna_read_gfa_seq(
 	/* finished, build links */
 	struct fna_seq_intl_s *r = (struct fna_seq_intl_s *)(
 		lmm_kv_ptr(v) + fna->head_margin);
+
+	#define _next(x)		( (x).ptr + (x).len + 1 )
+	r->s.segment.name = (struct fna_str_s){
+		.ptr = (char const *)(r + 1),
+		.len = name_len
+	};
+	r->s.segment.comment = (struct fna_str_s){
+		.ptr = (char const *)_next(r->s.segment.name),
+		.len = 0
+	};
+	r->s.segment.seq = (struct fna_sarr_s){
+		.ptr = (uint8_t const *)(_next(r->s.segment.comment) + r->seq_head_margin),
+		.len = seq_len
+	};
+	r->s.segment.qual = (struct fna_sarr_s){
+		.ptr = (uint8_t const *)(_next(r->s.segment.seq) + r->seq_tail_margin),
+		.len = 0
+	};
+	#undef _next
+
+	return(r);
+
+	#if 0
 	char *name = (char *)(r + 1);
 	uint8_t *seq = (uint8_t *)(name + (name_len + 1) + r->seq_head_margin);
 	uint8_t *qual = (uint8_t *)(seq + (seq_len + 1) + r->seq_tail_margin);
@@ -1065,6 +1169,7 @@ struct fna_seq_intl_s *fna_read_gfa_seq(
 		name, name_len,
 		seq, seq_len,
 		qual, qual_len));
+	#endif
 }
 
 /**
@@ -1092,28 +1197,28 @@ struct fna_seq_intl_s *fna_read_gfa_link(
 	}));
 
 	/* parse from field */
-	struct fna_read_ret_s ret_from = fna_read_ascii(fna, &v, delim_gfa_field);
-	if(ret_from.c != '\t') {
+	struct fna_read_ret_s ret_src = fna_read_ascii(fna, &v, delim_gfa_field);
+	if(ret_src.c != '\t') {
 		fna->status = FNA_ERROR_BROKEN_FORMAT;
 		return(NULL);
 	}
 
 	/* direction */
-	int64_t from_ori = (zfgetc(fna->fp) == '+') ? 0 : 1;
+	int64_t src_ori = (zfgetc(fna->fp) == '+') ? 0 : 1;
 	if(zfgetc(fna->fp) != '\t') {
 		fna->status = FNA_ERROR_BROKEN_FORMAT;
 		return(NULL);
 	}
 
 	/* parse to field */
-	struct fna_read_ret_s ret_to = fna_read_ascii(fna, &v, delim_gfa_field);
-	if(ret_to.c != '\t') {
+	struct fna_read_ret_s ret_dst = fna_read_ascii(fna, &v, delim_gfa_field);
+	if(ret_dst.c != '\t') {
 		fna->status = FNA_ERROR_BROKEN_FORMAT;
 		return(NULL);
 	}
 
 	/* direction */
-	int64_t to_ori = (zfgetc(fna->fp) == '+') ? 0 : 1;
+	int64_t dst_ori = (zfgetc(fna->fp) == '+') ? 0 : 1;
 	if(zfgetc(fna->fp) != '\t') {
 		fna->status = FNA_ERROR_BROKEN_FORMAT;
 		return(NULL);
@@ -1125,7 +1230,7 @@ struct fna_seq_intl_s *fna_read_gfa_link(
 	/* check if optional field remains */
 	if(ret_cig.c == '\t') {
 		/* skip optional fields */
-		fna_read_skip(fna, delim_line);
+		fna_read_skip(fna, delim_line, LIM_UNLIMITED);
 	}
 
 	/* make margin at the tail */
@@ -1134,8 +1239,34 @@ struct fna_seq_intl_s *fna_read_gfa_link(
 	/* finished, build links */
 	struct fna_seq_intl_s *r = (struct fna_seq_intl_s *)(
 		lmm_kv_ptr(v) + fna->head_margin);
+
+	#define _next(x)		( (x).ptr + (x).len + 1 )
+	r->s.link.src = (struct fna_str_s){
+		.ptr = (char const *)(r + 1),
+		.len = ret_src.len
+	};
+	r->s.link.src_ori = src_ori;
+	r->s.link.dst = (struct fna_str_s){
+		.ptr = (char const *)_next(r->s.link.src),
+		.len = ret_dst.len
+	};
+	r->s.link.dst_ori = dst_ori;
+	r->s.link.cigar = (struct fna_cigar_s){
+		.ptr = (char const *)_next(r->s.link.dst),
+		.len = ret_cig.len
+	};
+	#undef _next
+
+	/* replace "*" with "" */
+	if(r->s.link.cigar.ptr[0] == '*') {
+		((char *)r->s.link.cigar.ptr)[0] = '\0';
+		r->s.link.cigar.len = 0;
+	}
+	return(r);
+
+	#if 0
 	char *from = (char *)(r + 1);
-	char *to = from + (ret_from.len + 1);
+	char *to = from + (ret_src.len + 1);
 	char *cig = to + (ret_to.len + 1);
 
 	/* replace "*" with "" */
@@ -1145,9 +1276,10 @@ struct fna_seq_intl_s *fna_read_gfa_link(
 	}
 
 	return(_fna_pack_link(r,
-		from, ret_from.len, from_ori,
+		from, ret_src.len, from_ori,
 		to, ret_to.len, to_ori,
 		cig, ret_cig.len));
+	#endif
 }
 
 /**
@@ -1197,7 +1329,7 @@ struct fna_seq_intl_s *fna_read_gfa(
 
 			case 'C':	/* fall throught to 'P' */
 			case 'P':
-			fna_read_skip(fna, delim_line);
+			fna_read_skip(fna, delim_line, LIM_UNLIMITED);
 			break;
 
 			/*
@@ -1241,53 +1373,60 @@ void fna_seq_free(fna_seq_t *seq)
 {
 	struct fna_seq_intl_s *s = (struct fna_seq_intl_s *)seq;
 	if(s != NULL) {
+
+		#define _next(x)		( (x).ptr + (x).len + 1 )
+
 		/* free if external mem is used */
 		if(s->type == FNA_SEGMENT) {
 
 			/* segment */
-			char const *name_base = (char *)(s + 1);
-			if(s->s.segment.name != name_base) {
-				lmm_free(s->lmm, s->s.segment.name);
+			char const *name_base = (char const *)(s + 1);
+			char const *comment_base = (char const *)_next(s->s.segment.name);
+			uint8_t const *seq_base = (uint8_t const *)_next(s->s.segment.comment) + s->seq_head_margin; 
+			uint8_t const *qual_base = (uint8_t const *)_next(s->s.segment.seq) + s->seq_tail_margin; 
+
+			/* segment */
+			if(s->s.segment.name.ptr != name_base) {
+				lmm_free(s->lmm, (void *)s->s.segment.name.ptr);
+			}
+			if(s->s.segment.comment.ptr != comment_base) {
+				lmm_free(s->lmm, (void *)s->s.segment.comment.ptr);
+			}
+			if(s->s.segment.seq.ptr != seq_base) {
+				lmm_free(s->lmm, (void *)s->s.segment.seq.ptr);
+			}
+			if(s->s.segment.qual.ptr != qual_base) {
+				lmm_free(s->lmm, (void *)s->s.segment.qual.ptr);
 			}
 
-			uint8_t const *seq_base = (uint8_t const *)(
-				name_base + s->seq_head_margin + s->s.segment.name_len + 1);
-			if(s->s.segment.seq != seq_base) {
-				lmm_free(s->lmm, s->s.segment.seq);
-			}
-			
-			uint8_t const *qual_base = (uint8_t const *)(
-				seq_base + s->seq_tail_margin + s->s.segment.seq_len + 1);
-			if(s->s.segment.qual != qual_base) {
-				lmm_free(s->lmm, s->s.segment.qual);
-			}
-
-			s->s.segment.name = NULL;
-			s->s.segment.seq = NULL;
-			s->s.segment.qual = NULL;
+			s->s.segment.name.ptr = NULL;
+			s->s.segment.comment.ptr = NULL;
+			s->s.segment.seq.ptr = NULL;
+			s->s.segment.qual.ptr = NULL;
 
 		} else if(s->type == FNA_LINK) {
 
 			/* link */
-			char const *from_base = (char *)(s + 1);
-			if(s->s.link.from != from_base) {
-				lmm_free(s->lmm, s->s.link.from);
+			char const *src_base = (char const *)(s + 1);
+			char const *dst_base = (char const *)_next(s->s.link.src);
+			char const *cigar_base = (char const *)_next(s->s.link.dst);
+
+			if(s->s.link.src.ptr != src_base) {
+				lmm_free(s->lmm, (void *)s->s.link.src.ptr);
+			}
+			if(s->s.link.dst.ptr != dst_base) {
+				lmm_free(s->lmm, (void *)s->s.link.dst.ptr);
+			}
+			if(s->s.link.cigar.ptr != cigar_base) {
+				lmm_free(s->lmm, (void *)s->s.link.cigar.ptr);
 			}
 
-			char const *to_base = from_base + s->s.link.from_len + 1;
-			if(s->s.link.to != to_base) {
-				lmm_free(s->lmm, s->s.link.to);
-			}
-
-			char const *cigar_base = to_base + s->s.link.to_len + 1;
-			if(s->s.link.cigar != cigar_base) {
-				lmm_free(s->lmm, s->s.link.cigar);
-			}
-
-			s->s.link.from = NULL;
-			s->s.link.to = NULL;
-			s->s.link.cigar = NULL;
+			s->s.link.src.ptr = NULL;
+			s->s.link.dst.ptr = NULL;
+			s->s.link.cigar.ptr = NULL;
 		}
+
+		#undef _next
 
 		/* free context */
 		lmm_free(s->lmm, (void *)((uint8_t *)s - s->head_margin));
@@ -1483,7 +1622,7 @@ int fdump(
 	char const *content)
 {
 	FILE *fp = fopen(filename, "w");
-	int64_t l = fprintf(fp, "%s", content);
+	uint64_t l = fprintf(fp, "%s", content);
 	fclose(fp);
 	return(l == strlen(content));
 }
@@ -1493,7 +1632,7 @@ int fdump(
  * @brief compare file, returns zero if the content is equivalent to arr
  */
 static _force_inline
-int fcmp(char const *filename, int64_t size, uint8_t const *arr)
+int fcmp(char const *filename, uint64_t size, uint8_t const *arr)
 {
 	int64_t res;
 	struct stat st;
@@ -1504,7 +1643,8 @@ int fcmp(char const *filename, int64_t size, uint8_t const *arr)
 	fstat(fileno(fp), &st);
 	buf = malloc(sizeof(uint8_t) * st.st_size);
 
-	if(fread(buf, sizeof(uint8_t), st.st_size, fp) != st.st_size) {
+	if(fread(buf, sizeof(uint8_t), st.st_size, fp) != (size_t)st.st_size) {
+		free(buf);
 		return(0);
 	}
 	res = memcmp(buf, arr, size);
@@ -1590,7 +1730,7 @@ unittest()
 		">test0\nAAAA\n"
 		"> test1\nATAT\nCGCG\n"
 		">  test2\n\nAAAA\n"
-		">\ttest3\nACGT";
+		">\ttest3 \tcomment   \nACGT";
 	assert(fdump(fasta_filename, fasta_content));
 	assert(fcmp(fasta_filename, strlen(fasta_content), (uint8_t const *)fasta_content));
 
@@ -1602,30 +1742,34 @@ unittest()
 
 	/* test0 */
 	fna_seq_t *seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test0") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test0") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp(seq->s.segment.comment.ptr, "") == 0, "comment(%s)", seq->s.segment.comment.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 4, "len(%lld)", seq->s.segment.seq.len);
 	fna_seq_free(seq);
 
 	/* test1 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test1") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 8, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test1") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp(seq->s.segment.comment.ptr, "") == 0, "comment(%s)", seq->s.segment.comment.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 8, "len(%lld)", seq->s.segment.seq.len);
 	fna_seq_free(seq);
 
 	/* test2 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test2") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test2") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp(seq->s.segment.comment.ptr, "") == 0, "comment(%s)", seq->s.segment.comment.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 4, "len(%lld)", seq->s.segment.seq.len);
 	fna_seq_free(seq);
 
 	/* test3 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test3") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test3") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp(seq->s.segment.comment.ptr, "comment") == 0, "comment(%s)", seq->s.segment.comment.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "ACGT") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 4, "len(%lld)", seq->s.segment.seq.len);
 	fna_seq_free(seq);
 
 	/* test eof */
@@ -1656,7 +1800,7 @@ unittest()
 		"@test0\nAAAA\n+test0\nNNNN\n"
 		"@ test1\nATAT\nCGCG\n+ test1\nNNNN\nNNNN\n"
 		"@  test2\n\nAAAA\n+  test2\n\nNNNN\n"
-		"@\ttest3\nACGT\n\n+\ttest3\nNNNN";
+		"@\ttest3\t  comment   \nACGT\n\n+\ttest3\nNNNN";
 	assert(fdump(fastq_filename, fastq_content));
 	assert(fcmp(fastq_filename, strlen(fastq_content), (uint8_t const *)fastq_content));
 
@@ -1668,38 +1812,42 @@ unittest()
 
 	/* test0 */
 	fna_seq_t *seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test0") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
-	assert(strcmp((char const *)seq->s.segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
-	assert(seq->s.segment.qual_len == 4, "len(%lld)", seq->s.segment.qual_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test0") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp(seq->s.segment.comment.ptr, "") == 0, "comment(%s)", seq->s.segment.comment.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 4, "len(%lld)", seq->s.segment.seq.len);
+	assert(strcmp((char const *)seq->s.segment.qual.ptr, "NNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual.ptr);
+	assert(seq->s.segment.qual.len == 4, "len(%lld)", seq->s.segment.qual.len);
 	fna_seq_free(seq);
 
 	/* test1 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test1") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 8, "len(%lld)", seq->s.segment.seq_len);
-	assert(strcmp((char const *)seq->s.segment.qual, "NNNNNNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
-	assert(seq->s.segment.qual_len == 8, "len(%lld)", seq->s.segment.qual_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test1") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp(seq->s.segment.comment.ptr, "") == 0, "comment(%s)", seq->s.segment.comment.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 8, "len(%lld)", seq->s.segment.seq.len);
+	assert(strcmp((char const *)seq->s.segment.qual.ptr, "NNNNNNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual.ptr);
+	assert(seq->s.segment.qual.len == 8, "len(%lld)", seq->s.segment.qual.len);
 	fna_seq_free(seq);
 
 	/* test2 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test2") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
-	assert(strcmp((char const *)seq->s.segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
-	assert(seq->s.segment.qual_len == 4, "len(%lld)", seq->s.segment.qual_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test2") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp(seq->s.segment.comment.ptr, "") == 0, "comment(%s)", seq->s.segment.comment.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 4, "len(%lld)", seq->s.segment.seq.len);
+	assert(strcmp((char const *)seq->s.segment.qual.ptr, "NNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual.ptr);
+	assert(seq->s.segment.qual.len == 4, "len(%lld)", seq->s.segment.qual.len);
 	fna_seq_free(seq);
 
 	/* test3 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test3") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
-	assert(strcmp((char const *)seq->s.segment.qual, "NNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
-	assert(seq->s.segment.qual_len == 4, "len(%lld)", seq->s.segment.qual_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test3") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp(seq->s.segment.comment.ptr, "comment") == 0, "comment(%s)", seq->s.segment.comment.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "ACGT") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 4, "len(%lld)", seq->s.segment.seq.len);
+	assert(strcmp((char const *)seq->s.segment.qual.ptr, "NNNN") == 0, "seq(%s)", (char const *)seq->s.segment.qual.ptr);
+	assert(seq->s.segment.qual.len == 4, "len(%lld)", seq->s.segment.qual.len);
 	fna_seq_free(seq);
 
 	/* test eof */
@@ -1727,7 +1875,7 @@ unittest()
 	char const *fastq_filename = "test_fna.fq";
 	char const *fastq_content =
 		"@test0\nAAAA\n+test0\nNNNN\n"
-		"@ test1\nATAT\nCGCG\n+ test1\nNNNN\nNNNN\n"
+		"@ test1\nATAT\nCGCG\n+ test1\nII@#\n+III\n"
 		"@  test2\n\nAAAA\n+  test2\n\nNNNN\n"
 		"@\ttest3\nACGT\n\n+\ttest3\nNNNN";
 	assert(fdump(fastq_filename, fastq_content));
@@ -1741,38 +1889,38 @@ unittest()
 
 	/* test0 */
 	fna_seq_t *seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test0") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
-	assert(strcmp((char const *)seq->s.segment.qual, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
-	assert(seq->s.segment.qual_len == 0, "len(%lld)", seq->s.segment.qual_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test0") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 4, "len(%lld)", seq->s.segment.seq.len);
+	assert(strcmp((char const *)seq->s.segment.qual.ptr, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual.ptr);
+	assert(seq->s.segment.qual.len == 0, "len(%lld)", seq->s.segment.qual.len);
 	fna_seq_free(seq);
 
 	/* test1 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test1") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 8, "len(%lld)", seq->s.segment.seq_len);
-	assert(strcmp((char const *)seq->s.segment.qual, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
-	assert(seq->s.segment.qual_len == 0, "len(%lld)", seq->s.segment.qual_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test1") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "ATATCGCG") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 8, "len(%lld)", seq->s.segment.seq.len);
+	assert(strcmp((char const *)seq->s.segment.qual.ptr, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual.ptr);
+	assert(seq->s.segment.qual.len == 0, "len(%lld)", seq->s.segment.qual.len);
 	fna_seq_free(seq);
 
 	/* test2 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test2") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
-	assert(strcmp((char const *)seq->s.segment.qual, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
-	assert(seq->s.segment.qual_len == 0, "len(%lld)", seq->s.segment.qual_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test2") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "AAAA") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 4, "len(%lld)", seq->s.segment.seq.len);
+	assert(strcmp((char const *)seq->s.segment.qual.ptr, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual.ptr);
+	assert(seq->s.segment.qual.len == 0, "len(%lld)", seq->s.segment.qual.len);
 	fna_seq_free(seq);
 
 	/* test3 */
 	seq = fna_read(fna);
-	assert(strcmp(seq->s.segment.name, "test3") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "ACGT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 4, "len(%lld)", seq->s.segment.seq_len);
-	assert(strcmp((char const *)seq->s.segment.qual, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual);
-	assert(seq->s.segment.qual_len == 0, "len(%lld)", seq->s.segment.qual_len);
+	assert(strcmp(seq->s.segment.name.ptr, "test3") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "ACGT") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 4, "len(%lld)", seq->s.segment.seq.len);
+	assert(strcmp((char const *)seq->s.segment.qual.ptr, "") == 0, "seq(%s)", (char const *)seq->s.segment.qual.ptr);
+	assert(seq->s.segment.qual.len == 0, "len(%lld)", seq->s.segment.qual.len);
 	fna_seq_free(seq);
 
 	/* test eof */
@@ -1818,55 +1966,55 @@ unittest()
 	/* segment 11 */
 	fna_seq_t *seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
-	assert(strcmp(seq->s.segment.name, "11") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "ACCTT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 5, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp(seq->s.segment.name.ptr, "11") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "ACCTT") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 5, "len(%lld)", seq->s.segment.seq.len);
 	fna_seq_free(seq);
 
 	/* segment 12 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
-	assert(strcmp(seq->s.segment.name, "12") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "TCAAGG") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 6, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp(seq->s.segment.name.ptr, "12") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "TCAAGG") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 6, "len(%lld)", seq->s.segment.seq.len);
 	fna_seq_free(seq);
 
 	/* segment 13 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
-	assert(strcmp(seq->s.segment.name, "13") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "CTTGATT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 7, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp(seq->s.segment.name.ptr, "13") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "CTTGATT") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 7, "len(%lld)", seq->s.segment.seq.len);
 	fna_seq_free(seq);
 
 	/* link 11 to 12 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_LINK, "type(%d)", seq->type);
-	assert(strcmp(seq->s.link.from, "11") == 0, "from(%s)", seq->s.link.from);
-	assert(seq->s.link.from_ori == 0, "from_ori(%d)", seq->s.link.from_ori);
-	assert(strcmp(seq->s.link.to, "12") == 0, "to(%s)", seq->s.link.to);
-	assert(seq->s.link.to_ori == 1, "to_ori(%d)", seq->s.link.to_ori);
-	assert(strcmp((char const *)seq->s.link.cigar, "4M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar);
+	assert(strcmp(seq->s.link.src.ptr, "11") == 0, "from(%s)", seq->s.link.src.ptr);
+	assert(seq->s.link.src_ori == 0, "src_ori(%d)", seq->s.link.src_ori);
+	assert(strcmp(seq->s.link.dst.ptr, "12") == 0, "to(%s)", seq->s.link.dst.ptr);
+	assert(seq->s.link.dst_ori == 1, "dst_ori(%d)", seq->s.link.dst_ori);
+	assert(strcmp((char const *)seq->s.link.cigar.ptr, "4M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar.ptr);
 	fna_seq_free(seq);
 
 	/* link 12 to 13 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_LINK, "type(%d)", seq->type);
-	assert(strcmp(seq->s.link.from, "12") == 0, "from(%s)", seq->s.link.from);
-	assert(seq->s.link.from_ori == 1, "from_ori(%d)", seq->s.link.from_ori);
-	assert(strcmp(seq->s.link.to, "13") == 0, "to(%s)", seq->s.link.to);
-	assert(seq->s.link.to_ori == 0, "to_ori(%d)", seq->s.link.to_ori);
-	assert(strcmp((char const *)seq->s.link.cigar, "5M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar);
+	assert(strcmp(seq->s.link.src.ptr, "12") == 0, "from(%s)", seq->s.link.src.ptr);
+	assert(seq->s.link.src_ori == 1, "src_ori(%d)", seq->s.link.src_ori);
+	assert(strcmp(seq->s.link.dst.ptr, "13") == 0, "to(%s)", seq->s.link.dst.ptr);
+	assert(seq->s.link.dst_ori == 0, "dst_ori(%d)", seq->s.link.dst_ori);
+	assert(strcmp((char const *)seq->s.link.cigar.ptr, "5M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar.ptr);
 	fna_seq_free(seq);
 
 	/* link 11 to 13 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_LINK, "type(%d)", seq->type);
-	assert(strcmp(seq->s.link.from, "11") == 0, "from(%s)", seq->s.link.from);
-	assert(seq->s.link.from_ori == 0, "from_ori(%d)", seq->s.link.from_ori);
-	assert(strcmp(seq->s.link.to, "13") == 0, "to(%s)", seq->s.link.to);
-	assert(seq->s.link.to_ori == 0, "to_ori(%d)", seq->s.link.to_ori);
-	assert(strcmp((char const *)seq->s.link.cigar, "3M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar);
+	assert(strcmp(seq->s.link.src.ptr, "11") == 0, "from(%s)", seq->s.link.src.ptr);
+	assert(seq->s.link.src_ori == 0, "src_ori(%d)", seq->s.link.src_ori);
+	assert(strcmp(seq->s.link.dst.ptr, "13") == 0, "to(%s)", seq->s.link.dst.ptr);
+	assert(seq->s.link.dst_ori == 0, "dst_ori(%d)", seq->s.link.dst_ori);
+	assert(strcmp((char const *)seq->s.link.cigar.ptr, "3M") == 0, "cigar(%s)", (char const *)seq->s.link.cigar.ptr);
 	fna_seq_free(seq);
 
 	/* skip path line, not implemented yet */
@@ -1874,9 +2022,9 @@ unittest()
 	/* segment 15 */
 	seq = fna_read(fna);
 	assert(seq->type == FNA_SEGMENT, "type(%d)", seq->type);
-	assert(strcmp(seq->s.segment.name, "15") == 0, "name(%s)", seq->s.segment.name);
-	assert(strcmp((char const *)seq->s.segment.seq, "CTTGATT") == 0, "seq(%s)", (char const *)seq->s.segment.seq);
-	assert(seq->s.segment.seq_len == 7, "len(%lld)", seq->s.segment.seq_len);
+	assert(strcmp(seq->s.segment.name.ptr, "15") == 0, "name(%s)", seq->s.segment.name.ptr);
+	assert(strcmp((char const *)seq->s.segment.seq.ptr, "CTTGATT") == 0, "seq(%s)", (char const *)seq->s.segment.seq.ptr);
+	assert(seq->s.segment.seq.len == 7, "len(%lld)", seq->s.segment.seq.len);
 	fna_seq_free(seq);
 
 	/* term */
@@ -2025,8 +2173,8 @@ unittest()
 		char buf[1024];
 		sprintf(buf, "seq%" PRId64 "", i++);
 
-		assert(strcmp(seq->s.segment.name, buf) == 0, "name(%s, %s)", seq->s.segment.name, buf);
-		assert(seq->s.segment.seq_len == 100000, "len(%lld)", seq->s.segment.seq_len);
+		assert(strcmp(seq->s.segment.name.ptr, buf) == 0, "name(%s, %s)", seq->s.segment.name.ptr, buf);
+		assert(seq->s.segment.seq.len == 100000, "len(%lld)", seq->s.segment.seq.len);
 
 		fna_seq_free(seq);
 	}
